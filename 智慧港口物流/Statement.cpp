@@ -324,6 +324,7 @@ void Manager::FlushOperation()
 			robot[i].FlushPos();
 		}
 
+
 		if (!robot[i].isInPath)
 		{
 			robot[i].ToGetGoods();
