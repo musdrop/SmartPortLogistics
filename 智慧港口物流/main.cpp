@@ -6,8 +6,6 @@ const int n = 200;
 const int robot_num = 10;
 const int berth_num = 10;
 const int N = 210;
-
-
 struct Robot
 {
 	int x, y, goods;
