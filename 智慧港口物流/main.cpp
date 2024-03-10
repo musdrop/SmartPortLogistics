@@ -8,6 +8,8 @@ const int berth_num = 10;
 const int N = 210;
 
 int a;
+int c;
+int b;
 struct Robot
 {
 	int x, y, goods;
