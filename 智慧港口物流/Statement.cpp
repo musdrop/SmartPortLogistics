@@ -1,4 +1,14 @@
 #include "Statement.h"
+extern int money;//当前金钱
+extern int boat_capacity;//船的最大装货量,个数
+extern int id;//当前帧id
+extern char map[N][N];//港口地图
+extern int total_goods;//货物总数
+extern vector<Goods> good;//货物信息
+
+extern Robot robot[robot_num];
+extern Berth berth[berth_num];
+extern Boat boat[boat_num];
 
 void Robot::Set(int x, int y, int goods, int status) 
 {

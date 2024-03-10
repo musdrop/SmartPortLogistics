@@ -1,37 +1,47 @@
 #include "Statement.h"
 
+int money;//当前金钱
+int boat_capacity;//船的最大装货量,个数
+int id;//当前帧id
+char map[N][N];//港口地图
+int total_goods = 0;//货物总数
+vector<Goods> good;//货物信息
+
+Robot robot[robot_num];
+Berth berth[berth_num];
+Boat boat[boat_num];
+
 //初始化
 void Init()
 {
 	for (int i = 0; i < N; i++)
-		scanf("%s", map[i]);
+		cin>>map[i];
 	//读取泊位信息
 	for (int i = 0; i < berth_num; i++)
 	{
 		int id;
-
-		scanf("%d", &id);
+		cin >> id;
 		int ltx, lty, transport_time, loading_speed;
-		scanf("%d%d%d%d", &ltx, &lty, &transport_time, &loading_speed);
+		cin >> ltx >> lty >> transport_time >> loading_speed;
 		berth[id].Set(ltx, lty, transport_time, loading_speed);
 	}
-	scanf("%d", &boat_capacity);
+	cin>>boat_capacity;
 	char okk[100];
-	scanf("%s", okk);
-	printf("OK\n");
+	cin >> okk;
+	cout<<"OK\n";
 	fflush(stdout);
 }
 //每帧输入读取
 int Input()
 {
-	scanf("%d%d", &id, &money);
+	cin >> id >> money;
 	int num;
-	scanf("%d", &num);
+	cin >> num;
 	//读取新增货物信息
 	for (int i = 0; i < num; i++)
 	{
 		int x, y, val;
-		scanf("%d%d%d", &x, &y, &val);
+		cin >> x >> y >> val;
 		good.push_back(Goods(total_goods, x, y, val));
 		total_goods++;
 	}
@@ -39,18 +49,18 @@ int Input()
 	for (int i = 0; i < robot_num; i++)
 	{
 		int goods, x, y, sts;
-		scanf("%d%d%d%d", &goods, &x, &y, &sts);
+		cin >> goods >> x >> y >> sts;
 		robot[i].Set(x, y, goods, sts);
 	}
 	//读取船信息
 	for (int i = 0; i < boat_num; i++)
 	{
 		int status, pos;
-		scanf("%d%d\n", &status, &pos);
+		cin >> status >> pos;
 		boat[i].Set(status, pos);
 	}
 	char okk[100];
-	scanf("%s", okk);
+	cin >> okk;
 	return id;
 }
 
@@ -63,7 +73,7 @@ int main()
 		int id = Input();
 		//每帧输出
 		for (int i = 0; i < robot_num; i++)
-			printf("move %d %d\n", i, rand() % 4);
+			cout << "move " << i <<' '<< rand() % 4 << '\n';
 		puts("OK");
 		fflush(stdout);
 	}

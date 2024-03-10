@@ -2,18 +2,12 @@
 #include <iostream>
 #include <random>
 #include <vector>
-#define _CRT_SECURE_NO_WARNINGS
 using namespace std;
+
 #define N  200//地图大小
 #define robot_num 10//机器人数量
 #define berth_num 10//泊位数量
 #define boat_num 5//船数量
-
-int money;//当前金钱
-int boat_capacity;//船的最大装货量,个数
-int id;//当前帧id
-char map[N][N];//港口地图
-int total_goods = 0;//货物总数
 
 //机器人
 class Robot
@@ -26,7 +20,7 @@ private:
 public:
 	Robot() {}
 	void Set(int x, int y, int goods, int status);
-}robot[robot_num];
+};
 //泊位
 class Berth
 {
@@ -38,7 +32,7 @@ private:
 public:
 	Berth() {}
 	void Set(int x, int y, int transport_time, int loading_speed);
-}berth[berth_num];
+};
 //船
 class Boat
 {
@@ -48,7 +42,7 @@ private:
 public:
 	Boat() {}
 	void Set(int status, int pos);
-}boat[boat_num];
+};
 //货物
 class Goods
 {
@@ -61,4 +55,3 @@ private:
 public:
 	Goods(int id = 0, int x = 0, int y = 0, int val = 0);
 };
-vector<Goods> good;//货物信息
