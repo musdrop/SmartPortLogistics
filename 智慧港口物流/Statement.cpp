@@ -1,0 +1,33 @@
+#include "Statement.h"
+
+void Robot::Set(int x, int y, int goods, int status) 
+{
+	this->x = x;
+	this->y = y;
+	this->goods = goods;
+	this->status = status;
+}
+
+void Berth::Set(int x, int y, int transport_time, int loading_speed)
+{
+	this->ltx = x;
+	this->lty = y;
+	this->transport_time = transport_time;
+	this->loading_speed = loading_speed;
+}
+
+
+void Boat::Set(int status, int pos)
+{
+	this->pos = pos;
+	this->status = status;
+}
+
+Goods::Goods(int id, int x, int y, int val) :status(0), surtime(1000)
+{
+	this->id = id;
+	this->x = x;
+	this->y = y;
+	this->val = val;
+}
+

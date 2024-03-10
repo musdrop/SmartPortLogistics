@@ -1,58 +1,19 @@
-#include <stdio.h>
-#include <random>
-using namespace std;
+#include "Statement.h"
 
-const int n = 200;
-const int robot_num = 10;
-const int berth_num = 10;
-const int N = 210;
-
-int a;
-int b;
-struct Robot
-{
-	int x, y, goods;
-	int status;
-	int mbx, mby;
-	Robot() {}
-	Robot(int startX, int startY) {
-		x = startX;
-		y = startY;
-	}
-}robot[robot_num + 10];
-
-struct Berth
-{
-	int x;
-	int y;
-	int transport_time;
-	int loading_speed;
-	Berth() {}
-	Berth(int x, int y, int transport_time, int loading_speed) {
-		this->x = x;
-		this->y = y;
-		this->transport_time = transport_time;
-		this->loading_speed = loading_speed;
-	}
-}berth[berth_num + 10];
-
-struct Boat
-{
-	int num, pos, status;
-}boat[10];
-
-int money, boat_capacity, id;
-char ch[N][N];
-int gds[N][N];
+//初始化
 void Init()
 {
-	for (int i = 1; i <= n; i++)
-		scanf("%s", ch[i] + 1);
+	for (int i = 0; i < N; i++)
+		scanf("%s", map[i]);
+	//读取泊位信息
 	for (int i = 0; i < berth_num; i++)
 	{
 		int id;
+
 		scanf("%d", &id);
-		scanf("%d%d%d%d", &berth[id].x, &berth[id].y, &berth[id].transport_time, &berth[id].loading_speed);
+		int ltx, lty, transport_time, loading_speed;
+		scanf("%d%d%d%d", &ltx, &lty, &transport_time, &loading_speed);
+		berth[id].Set(ltx, lty, transport_time, loading_speed);
 	}
 	scanf("%d", &boat_capacity);
 	char okk[100];
@@ -60,24 +21,34 @@ void Init()
 	printf("OK\n");
 	fflush(stdout);
 }
-
+//每帧输入读取
 int Input()
 {
 	scanf("%d%d", &id, &money);
 	int num;
 	scanf("%d", &num);
-	for (int i = 1; i <= num; i++)
+	//读取新增货物信息
+	for (int i = 0; i < num; i++)
 	{
 		int x, y, val;
 		scanf("%d%d%d", &x, &y, &val);
+		good.push_back(Goods(total_goods, x, y, val));
+		total_goods++;
 	}
+	//读取机器人信息
 	for (int i = 0; i < robot_num; i++)
 	{
-		int sts;
-		scanf("%d%d%d%d", &robot[i].goods, &robot[i].x, &robot[i].y, &sts);
+		int goods, x, y, sts;
+		scanf("%d%d%d%d", &goods, &x, &y, &sts);
+		robot[i].Set(x, y, goods, sts);
 	}
-	for (int i = 0; i < 5; i++)
-		scanf("%d%d\n", &boat[i].status, &boat[i].pos);
+	//读取船信息
+	for (int i = 0; i < boat_num; i++)
+	{
+		int status, pos;
+		scanf("%d%d\n", &status, &pos);
+		boat[i].Set(status, pos);
+	}
 	char okk[100];
 	scanf("%s", okk);
 	return id;
@@ -88,7 +59,9 @@ int main()
 	Init();
 	for (int zhen = 1; zhen <= 15000; zhen++)
 	{
+		//读取当前帧信息
 		int id = Input();
+		//每帧输出
 		for (int i = 0; i < robot_num; i++)
 			printf("move %d %d\n", i, rand() % 4);
 		puts("OK");
