@@ -7,7 +7,7 @@ const int robot_num = 10;
 const int berth_num = 10;
 const int N = 210;
 
-
+int a;
 struct Robot
 {
 	int x, y, goods;
