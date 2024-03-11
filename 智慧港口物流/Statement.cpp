@@ -2,7 +2,7 @@
 
 extern int money;//当前金钱
 extern int boat_capacity;//船的最大装货量,个数
-extern int id;//当前帧id
+extern int flushid;//当前帧id
 extern char map[N][N];//港口地图
 extern int total_goods;//货物总数
 extern vector<Goods> goods;//货物信息
@@ -14,24 +14,27 @@ extern Boat boat[boat_num];
 
 bool Robot::Move(Towards tw)
 {
-	map[x][y] = preGround;
+	int curx = x, cury = y;
 	switch (tw)
 	{
 	case Right:
-		x++;
+		cury++;
 		break;
 	case Left:
-		x--;
+		cury--;
 		break;
 	case Up:
-		y--;
+		curx--;
 		break;
 	case Down:
-		y++;
+		curx++;
 		break;
 	}
-	if (map[x][y] == 'B' || map[x][y] == '.')
+	if (map[curx][cury] == 'B' || map[curx][cury] == '.')
 	{
+		map[x][y] = preGround;
+		x = curx;
+		y = cury;
 		preGround = map[x][y];
 		map[x][y] = 'A';
 		cout << "move " << id << " " << tw << endl;
@@ -68,25 +71,24 @@ Towards Robot::TwofNearPoint(int x, int y)
 void Robot::PickUp()
 {
 	cout << "get " << id << endl;
-	//从待选货物列表中移除捡起的货物
-	int i = tarGdId > goods.size() - 1 ? goods.size() - 1 : tarGdId;
-	for (; i >= 0; i--)
-	{
-		if (goods[i].id == tarGdId)
-		{
-			goods.erase(goods.begin() + i);
-			gdMap[tarGdId] = false;
-			break;
-		}
-	}
+	//将捡起的货物的可捡起状态置为false
+	gdMap[tarGdPtr->id] = false;
 }
 
 void Robot::PutDown()
 {
 	cout << "pull " << id << endl;
+	//将放入泊位的货物加到泊位的货物列表中
+	berth[tarBerthId].AddGoods(tarGdPtr);
+	//从待选货物列表中彻底移除放入泊位的货物
+	goods.erase(goods.begin() + (tarGdPtr - &goods[0]));
+	//将目标货物指针置空
+	tarGdPtr = NULL;
+	//将目标泊位id置空
+	tarBerthId = -1;
 }
 
-int Robot::SelectGoods()
+Goods* Robot::SelectGoods()
 {
 	return 0;
 }
@@ -96,36 +98,31 @@ int Robot::SelectBerth()
 	return 0;
 }
 
-bool Robot::TargetGoods()
-{
-	return false;
-}
-
 Robot::Robot()
 {
 }
 
 void Robot::ToGetGoods()
 {
-	tarGdId = SelectGoods();
-	if (tarGdId == -1)
+	tarGdPtr = SelectGoods();
+	if (tarGdPtr == NULL)
 	{
 		isInPath = 0;
 		return;
 	}
-	MoveTo(goods[tarGdId].x, goods[tarGdId].y);
+	MoveTo(tarGdPtr->x, tarGdPtr->y);
 	isInPath = 1;
 }
 
 void Robot::ToPutGoods()
 {
-	int brthi = SelectBerth();
-	if (brthi == -1)
+	tarBerthId = SelectBerth();
+	if (tarBerthId == -1)
 	{
-		isInPath = 0;
+		isInPath = -1;
 		return;
 	}
-	pair<int, int> pos = berth[brthi].GetAvailablePos();
+	pair<int, int> pos = berth[tarBerthId].GetAvailablePos();
 	MoveTo(pos.first, pos.second);
 	isInPath = -1;
 }
@@ -140,10 +137,6 @@ void Robot::Set(int id, int x, int y, int isCarrygoods, int status)
 		this->isInPath = -1;
 	}
 	this->status = status;
-}
-void Robot::SetGoodsState(int id, bool state)
-{
-	gdMap[id] = state;
 }
 void Robot::FlushPos()
 {
@@ -180,10 +173,33 @@ void Robot::FlushPos()
 		}
 	}
 }
+void Robot::FlushAction()
+{
+	if (isInPath == 1)
+	{
+		if (gdMap[tarGdPtr->id])
+		{
+			FlushPos();
+		}
+		else
+		{
+			isInPath = 0;
+		}
+	}
+	else if (isInPath == -1)
+	{
+		FlushPos();
+	}
+	if (!isInPath)
+	{
+		ToGetGoods();
+	}
+}
 void Robot::MoveTo(int x, int y)
 {
 	path.clear();
 	curPathIndex = 0;
+
 }
 ///////////////////////////////////////////////////////////////
 Berth::Berth()
@@ -203,12 +219,86 @@ void Berth::Set(int id, int x, int y, int transport_time, int loading_speed)
 
 pair<int, int> Berth::GetAvailablePos()
 {
-	return pair<int, int>();
+	pair<int, int> pos;
+	pos.first = rbx - 1;
+	pos.second = rby - 1;
+	return pos;
 }
 
+void Berth::AddGoods(Goods* gdPtr)
+{
+	Goods gd = *gdPtr;
+	berthGoods.push_back(gd);
+}
 ///////////////////////////////////////////////////////////////
+
+int Boat::SelectBerth()
+{
+	return 0;
+}
+
+bool Boat::IsAvailable()
+{
+	if (status == 1 && pos == -1)
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+void Boat::ShipTo(int berthId)
+{
+	cout << "ship " << id << " " << berthId << endl;
+}
+
+void Boat::GoToSell()
+{
+	cout << "go " << id << endl;
+}
+
+bool Boat::IsOkToSell()
+{
+	return false;
+}
+
+void Boat::ToLoadGoods()
+{
+	pos = SelectBerth();
+	if (pos == -1)
+	{
+		return;
+	}
+	//将泊位的船状态置为有船来
+	berth[pos].isBoatComing = true;
+	ShipTo(pos);
+}
+
 Boat::Boat()
 {
+}
+
+void Boat::FlushAction()
+{
+	//如果船不闲
+	if (!IsAvailable())
+	{
+		//船在泊位上
+		if (status == 1)
+		{
+			//如果船满足卖货条件
+			if (IsOkToSell())
+			{
+				GoToSell();
+			}
+		}
+		//船在运输中什么也不用做
+		return;
+	}
+	//船闲的话安排船去泊位装货
+	ToLoadGoods();
 }
 
 void Boat::Set(int id, int status, int pos)
@@ -218,21 +308,17 @@ void Boat::Set(int id, int status, int pos)
 	this->status = status;
 }
 ///////////////////////////////////////////////////////////////
-Goods::Goods(int id, int x, int y, int val) :status(0), surtime(1000)
+Goods::Goods(int id, int x, int y, int val, int birthflushid) :status(0)
 {
 	this->id = id;
 	this->x = x;
 	this->y = y;
 	this->val = val;
+	this->birthflushid = birthflushid;
 }
-void Goods::LiveDown()
-{
-	surtime--;
-}
-
 bool Goods::IsAlive()
 {
-	return surtime > 0;
+	return birthflushid + 1000 > flushid;
 }
 
 ///////////////////////////////////////////////////////////////
@@ -250,6 +336,7 @@ void Manager::Init()
 		cin >> ltx >> lty >> transport_time >> loading_speed;
 		berth[id].Set(id, ltx, lty, transport_time, loading_speed);
 	}
+	//船的最大装货量
 	cin >> boat_capacity;
 	char okk[100];
 	cin >> okk;
@@ -257,9 +344,9 @@ void Manager::Init()
 	fflush(stdout);
 }
 //每帧输入读取
-int Manager::Input()
+void Manager::Input()
 {
-	cin >> id >> money;
+	cin >> flushid >> money;
 	int num;
 	cin >> num;
 	//读取新增货物信息
@@ -267,7 +354,7 @@ int Manager::Input()
 	{
 		int x, y, val;
 		cin >> x >> y >> val;
-		goods.push_back(Goods(total_goods, x, y, val));
+		goods.push_back(Goods(total_goods, x, y, val, flushid));
 		gdMap[total_goods] = true;
 		total_goods++;
 	}
@@ -287,18 +374,17 @@ int Manager::Input()
 	}
 	char okk[100];
 	cin >> okk;
-	return id;
 }
 
 void Manager::ClearDeadGoods()
 {
 	for (int i = 0; i < goods.size(); i++)
 	{
-		goods[i].LiveDown();
-		if (!goods[i].IsAlive())
+		int gdId = goods[i].id;
+		if (gdMap[gdId] && !goods[i].IsAlive())
 		{
 			goods.erase(goods.begin() + i);
-			gdMap[i] = false;
+			gdMap[gdId] = false;
 			i--;
 		}
 	}
@@ -306,36 +392,22 @@ void Manager::ClearDeadGoods()
 
 void Manager::FlushOperation()
 {
+	//清除死亡货物
+	ClearDeadGoods();
+	//机器人操作
 	for (int i = 0; i < robot_num; i++)
 	{
-		if (robot[i].isInPath == 1)
-		{
-			if (gdMap[robot[i].tarGdId])
-			{
-				robot[i].FlushPos();
-			}
-			else
-			{
-				robot[i].isInPath = 0;
-			}
-		}
-		else if (robot[i].isInPath == -1)
-		{
-			robot[i].FlushPos();
-		}
-
-		if (!robot[i].isInPath)
-		{
-			robot[i].ToGetGoods();
-		}
+		robot[i].FlushAction();
 	}
-
+	//船操作
+	for (int i = 0; i < boat_num; i++)
+	{
+		boat[i].FlushAction();
+	}
 }
 
 void Manager::React()
 {
-	//清除死亡货物
-	ClearDeadGoods();
 	//每帧固定操作
 	FlushOperation();
 	//结束
