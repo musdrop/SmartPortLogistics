@@ -90,7 +90,54 @@ void Robot::PutDown()
 
 Goods* Robot::SelectGoods()
 {
-	return 0;
+	vector<pair<int, int>>nearGoods;//储存离机器人最近的三个货物的下标及距离;
+	for (int i = 0; i < goods.size(); i++)
+	{
+		if (gdMap[goods[i].id] == 1)
+		{
+			int distance2;//机器人与货物的距离平方
+			distance2 = (goods[i].x - x) * (goods[i].x - x) + (goods[i].y - y) * (goods[i].y - y);
+			if (nearGoods.size() < 3)//当前可捡货物不足三件，直接添加至数组内
+			{
+				pair<int, int>a0;
+				a0.first = i;
+				a0.second = distance2;
+				nearGoods.push_back(a0);
+			}
+			else
+			{
+				//寻找三个值中距离最长的与当前货物距离进行对比
+				int max = 0;
+				for (int j = 1; j < 3; i++)
+				{
+					if (nearGoods[j].second > nearGoods[max].second)
+					{
+						max = j;
+					}
+				}
+				if (nearGoods[max].second > distance2)//若当前货物距离小于数组中最远的货物，则替换
+				{
+					nearGoods[max].first = i;
+					nearGoods[max].second = distance2;
+				}
+			}
+		}
+	}
+	if (nearGoods.size() == 0)//可选货物数量为0，返回空
+		return NULL;
+	int maxcostPerId = 0;//储存三个货物中性价比最高的货物下标
+	int costPerformance0 = 0;//储存三个货物中最高的性价比（货物价值/距离的平方）
+	for (int i = 0; i < nearGoods.size(); i++)
+	{
+	    int costPerformance = goods[nearGoods[i].first].val / nearGoods[i].second;//储存当前的货物的性价比
+		if (costPerformance > costPerformance0)//若当前货物性价比高于原定货物性价比，则替换
+		{
+			costPerformance0 = costPerformance;
+			maxcostPerId = nearGoods[i].first;
+		}
+	}
+	Goods* p = &goods[maxcostPerId];//返回数组中性价比最高的货物的地址指针
+	return p;
 }
 
 int Robot::SelectBerth()
