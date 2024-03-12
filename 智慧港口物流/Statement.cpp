@@ -90,10 +90,10 @@ void Robot::PutDown()
 
 Goods* Robot::SelectGoods()
 {
-	vector<pair<int, int>>nearGoods;//储存离机器人最近的三个货物的下标及距离;
+	vector<pair<int, int>>nearGoods;//储存离机器人最近的三个货物的下标及距离
 	for (int i = 0; i < goods.size(); i++)
 	{
-		if (gdMap[goods[i].id] == 1)
+		if (gdMap[goods[i].id] == true)
 		{
 			int distance2;//机器人与货物的距离平方
 			distance2 = (goods[i].x - x) * (goods[i].x - x) + (goods[i].y - y) * (goods[i].y - y);
@@ -124,25 +124,37 @@ Goods* Robot::SelectGoods()
 		}
 	}
 	if (nearGoods.size() == 0)//可选货物数量为0，返回空
+	{
 		return NULL;
+	}
 	int maxcostPerId = 0;//储存三个货物中性价比最高的货物下标
 	int costPerformance0 = 0;//储存三个货物中最高的性价比（货物价值/距离的平方）
 	for (int i = 0; i < nearGoods.size(); i++)
 	{
-	    int costPerformance = goods[nearGoods[i].first].val / nearGoods[i].second;//储存当前的货物的性价比
+		int costPerformance = goods[nearGoods[i].first].val / nearGoods[i].second;//储存当前的货物的性价比
 		if (costPerformance > costPerformance0)//若当前货物性价比高于原定货物性价比，则替换
 		{
 			costPerformance0 = costPerformance;
 			maxcostPerId = nearGoods[i].first;
 		}
 	}
-	Goods* p = &goods[maxcostPerId];//返回数组中性价比最高的货物的地址指针
-	return p;
+	return &goods[maxcostPerId];//返回数组中性价比最高的货物的地址指针
 }
 
 int Robot::SelectBerth()
 {
-	return 0;
+	int berthId = -1;
+	int nearst = INT_MAX;
+	for (int i = 0; i < berth_num; i++)
+	{
+		int temdis = berth[i].GetDistance(x, y);
+		if (temdis < nearst)
+		{
+			nearst = temdis;
+			berthId = i;
+		}
+	}
+	return berthId;
 }
 
 Robot::Robot()
@@ -169,7 +181,7 @@ void Robot::ToPutGoods()
 		isInPath = -1;
 		return;
 	}
-	pair<int, int> pos = berth[tarBerthId].GetAvailablePos();
+	pair<int, int> pos = berth[tarBerthId].GetAvailablePos(x, y);
 	MoveTo(pos.first, pos.second);
 	isInPath = -1;
 }
@@ -264,24 +276,90 @@ void Berth::Set(int id, int x, int y, int transport_time, int loading_speed)
 	this->loading_speed = loading_speed;
 }
 
-pair<int, int> Berth::GetAvailablePos()
+pair<int, int> Berth::GetAvailablePos(int x, int y)
 {
 	pair<int, int> pos;
-	pos.first = rbx - 1;
-	pos.second = rby - 1;
+	//计算离机器人最近的可用位置
+	if (x > rbx)
+	{
+		pos.first = rbx;
+	}
+	else if (x < ltx)
+	{
+		pos.first = ltx;
+	}
+	else
+	{
+		pos.first = x;
+	}
+	if (y > rby)
+	{
+		pos.second = rby;
+	}
+	else if (y < lty)
+	{
+		pos.second = lty;
+	}
+	else
+	{
+		pos.second = y;
+	}
 	return pos;
+}
+
+pair<int, int> Berth::GetGoods()
+{
+	pair<int, int> num_value(0, 0);
+	int num = berthGoods.size();
+	if (num < loading_speed)
+	{
+		num_value.first = num;
+		for (int i = 0; i < num; i++)
+		{
+			num_value.second += berthGoods[i].val;
+		}
+		berthGoods.clear();
+	}
+	else
+	{
+		num_value.first = loading_speed;
+		for (int i = 0; i < loading_speed; i++)
+		{
+			num_value.second += berthGoods[i].val;
+		}
+		berthGoods.erase(berthGoods.begin(), berthGoods.begin() + loading_speed);
+	}
+	totalGoodsValue -= num_value.second;
+	return num_value;
 }
 
 void Berth::AddGoods(Goods* gdPtr)
 {
 	Goods gd = *gdPtr;
 	berthGoods.push_back(gd);
+	totalGoodsValue += gd.val;
+}
+int Berth::GetDistance(int x, int y)
+{
+	return abs(ltx - x) + abs(lty - y);
 }
 ///////////////////////////////////////////////////////////////
 
 int Boat::SelectBerth()
 {
-	return 0;
+	int maxValue = INT_MIN;//性价比最大值	
+	int maxId = -1;
+	for (int i = 0; i < berth_num; i++)
+	{
+		if (!berth[i].isBoatComing && berth[i].boat_id == -1)
+		{
+			if (berth[i].totalGoodsValue / berth[i].transport_time > maxValue)
+			{
+				maxId = i;
+			}
+		}
+	}
+	return maxId;
 }
 
 bool Boat::IsAvailable()
@@ -304,10 +382,27 @@ void Boat::ShipTo(int berthId)
 void Boat::GoToSell()
 {
 	cout << "go " << id << endl;
+	//将船的货物数量和价值置为0
+	goodsNum = 0;
+	goodsValue = 0;
+	//将泊位的船状态置为无船
+	berth[pos].boat_id = -1;
 }
 
 bool Boat::IsOkToSell()
 {
+	if (goodsNum >= boat_capacity / 2)
+	{
+		return true;
+	}
+	if (goodsValue >= sell_price)
+	{
+		return true;
+	}
+	if (flushid - inBerthFlushId > 500)
+	{
+		return true;
+	}
 	return false;
 }
 
@@ -323,6 +418,20 @@ void Boat::ToLoadGoods()
 	ShipTo(pos);
 }
 
+void Boat::LoadGoods()
+{
+	if (berth[pos].isBoatComing)
+	{
+		//入泊位操作
+		berth[pos].isBoatComing = false;
+		berth[pos].boat_id = id;
+		inBerthFlushId = flushid;
+	}
+	pair<int, int> num_value = berth[pos].GetGoods();
+	goodsNum += num_value.first;
+	goodsValue += num_value.second;
+}
+
 Boat::Boat()
 {
 }
@@ -335,6 +444,8 @@ void Boat::FlushAction()
 		//船在泊位上
 		if (status == 1)
 		{
+			//装货
+			LoadGoods();
 			//如果船满足卖货条件
 			if (IsOkToSell())
 			{
@@ -365,7 +476,7 @@ Goods::Goods(int id, int x, int y, int val, int birthflushid) :status(0)
 }
 bool Goods::IsAlive()
 {
-	return birthflushid + 1000 > flushid;
+	return birthflushid + 1000 >= flushid;
 }
 
 ///////////////////////////////////////////////////////////////

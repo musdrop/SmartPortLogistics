@@ -10,6 +10,8 @@ using namespace std;
 #define berth_num 10//泊位数量
 #define boat_num 5//船数量
 
+#define sell_price 500//船出售货物行为的货物价值阈值
+
 enum Towards//机器人移动方向
 {
 	Right,
@@ -58,17 +60,20 @@ private:
 	int id;//泊位id
 	int ltx, lty;//泊位左上角坐标
 	int rbx, rby;//泊位右下角坐标
-	int transport_time;//泊位到虚拟点的运输时间
 	int loading_speed;//装货速度，每帧装货的货物数量
 	vector<Goods> berthGoods;//泊位上的货物
 public:
+	int transport_time;//泊位到虚拟点的运输时间
+	int totalGoodsValue = 0;//泊位上货物总价值
 	bool isBoatComing = false;//是否有船在来此的路上
-	int boat_id;//当前泊位上的船id
+	int boat_id = -1;//当前泊位上的船id
 public:
 	Berth();
 	void Set(int id, int x, int y, int transport_time, int loading_speed);
-	pair<int, int> GetAvailablePos();//获取泊位上的可用位置
+	pair<int, int> GetAvailablePos(int x, int y);//获取泊位上离机器人较近的可用位置
+	pair<int, int> GetGoods();
 	void AddGoods(Goods* gdPtr);//泊位上增加货物
+	int GetDistance(int x, int y);//返回某点到泊位的距离
 };
 //船
 class Boat
@@ -77,6 +82,9 @@ private:
 	int id;//船id
 	int status;//船状态,0表示移动(运输)中 1表示正常运行状态(即装货状态或运输完成状态) 2表示泊位外等待状态
 	int pos;//船当前位置或目标位置，-1表示虚拟点，0-9表示泊位
+	int goodsNum = 0;//船上货物数量
+	int goodsValue = 0;//船上货物价值
+	int inBerthFlushId = -1;//进入泊位的帧id
 private:
 	int SelectBerth();//选择泊位,返回下标
 	bool IsAvailable();//是否可用,状态为1且在虚拟点
@@ -84,6 +92,7 @@ private:
 	void GoToSell();//去虚拟点出售货物
 	bool IsOkToSell();//判断是否应该去出售货物
 	void ToLoadGoods();//去装货
+	void LoadGoods();//装货
 public:
 	Boat();
 	void FlushAction();//每帧行动决策
