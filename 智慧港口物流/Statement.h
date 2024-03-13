@@ -1,9 +1,13 @@
 #pragma once
 #include <iostream>
-#include <random>
 #include <vector>
+#include <queue>
 #include <unordered_map>
+#include <climits>
+#include "Logger.h"
 using namespace std;
+#define DL Logger::instance.Debug_Log
+
 
 #define N 200//地图大小
 #define robot_num 10//机器人数量
@@ -11,6 +15,10 @@ using namespace std;
 #define boat_num 5//船数量
 
 #define sell_price 500//船出售货物行为的货物价值阈值
+
+typedef struct heapNode {
+	int x, y, F;
+};     //堆排序结点，xy为坐标，F为预期总距离
 
 enum Towards//机器人移动方向
 {
@@ -39,18 +47,19 @@ public:
 	int isInPath = 0;//是否在路径中,-1去泊位，0是闲着，1去货物
 private:
 	bool Move(Towards tw);//基础移动
-	Towards TwofNearPoint(int x, int y);//根据坐标移动到相邻点
+	Towards TwofNearPoint();//根据坐标移动到相邻点
 	void PickUp();//捡货
 	void PutDown();//放货
 	Goods* SelectGoods();//选择离自己最近的货物,返回货物指针
 	int SelectBerth();//选择离自己最近的泊位,返回下标
-	void MoveTo(int x, int y);//设定到目标点的路径
-	void ToGetGoods();//去拿货物
+	bool MoveTo(int x, int y);//设定到目标点的路径 
+	void PlanGoods();//规划货物选择
+	void PlanPath();//规划路径
 	void ToPutGoods();//去放货物
 	void FlushPos();//每帧根据路径刷新位置
 public:
 	Robot();
-	void FlushAction();//每帧行动决策
+	int FlushAction();//每帧行动决策,返回-1代表正常，其他为重新分配路径的机器人id
 	void Set(int id, int x, int y, int isCarrygoods, int status);
 };
 //泊位
@@ -108,9 +117,13 @@ public:
 	int id;//货物id
 	int x, y;//货物坐标
 	int val;//货物价值
+	int robot_id = -1;//打算搬运此货物的机器人id
+	float distance = INT_MAX;//货物到机器人的距离
+
 public:
 	Goods(int id = 0, int x = 0, int y = 0, int val = 0, int birthflushid = 0);
 	bool IsAlive();//是否存活
+	bool operator==(const Goods& gd);//重载==运算符
 };
 //全局管理类
 class Manager

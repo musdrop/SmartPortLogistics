@@ -46,24 +46,24 @@ bool Robot::Move(Towards tw)
 	}
 }
 
-Towards Robot::TwofNearPoint(int x, int y)
+Towards Robot::TwofNearPoint()
 {
 	Towards tw;
 	if (path[curPathIndex].first > x)
 	{
-		tw = Right;
+		tw = Down;
 	}
 	else if (path[curPathIndex].first < x)
 	{
-		tw = Left;
+		tw = Up;
 	}
 	else if (path[curPathIndex].second > y)
 	{
-		tw = Down;
+		tw = Right;
 	}
 	else if (path[curPathIndex].second < y)
 	{
-		tw = Up;
+		tw = Left;
 	}
 	return tw;
 }
@@ -81,8 +81,9 @@ void Robot::PutDown()
 	//将放入泊位的货物加到泊位的货物列表中
 	berth[tarBerthId].AddGoods(tarGdPtr);
 	//从待选货物列表中彻底移除放入泊位的货物
-	goods.erase(goods.begin() + (tarGdPtr - &goods[0]));
+	goods.erase(remove(goods.begin(), goods.end(), *tarGdPtr), goods.end());
 	//将目标货物指针置空
+	delete tarGdPtr;
 	tarGdPtr = NULL;
 	//将目标泊位id置空
 	tarBerthId = -1;
@@ -90,54 +91,61 @@ void Robot::PutDown()
 
 Goods* Robot::SelectGoods()
 {
+	DL("开始挑货");
 	vector<pair<int, int>>nearGoods;//储存离机器人最近的三个货物的下标及距离
 	for (int i = 0; i < goods.size(); i++)
 	{
 		if (gdMap[goods[i].id] == true)
 		{
-			int distance2;//机器人与货物的距离平方
-			distance2 = (goods[i].x - x) * (goods[i].x - x) + (goods[i].y - y) * (goods[i].y - y);
+			DL("货物id为：" + to_string(goods[i].id));
+			int distance;//机器人与货物的距离平方
+			distance = abs(goods[i].x - x) + abs(goods[i].y - y);
 			if (nearGoods.size() < 3)//当前可捡货物不足三件，直接添加至数组内
 			{
 				pair<int, int>a0;
 				a0.first = i;
-				a0.second = distance2;
+				a0.second = distance;
 				nearGoods.push_back(a0);
 			}
 			else
 			{
 				//寻找三个值中距离最长的与当前货物距离进行对比
 				int max = 0;
-				for (int j = 1; j < 3; i++)
+				for (int j = 1; j < 3; j++)
 				{
 					if (nearGoods[j].second > nearGoods[max].second)
 					{
 						max = j;
 					}
 				}
-				if (nearGoods[max].second > distance2)//若当前货物距离小于数组中最远的货物，则替换
+				if (nearGoods[max].second > distance)//若当前货物距离小于数组中最远的货物，则替换
 				{
 					nearGoods[max].first = i;
-					nearGoods[max].second = distance2;
+					nearGoods[max].second = distance;
 				}
 			}
 		}
 	}
 	if (nearGoods.size() == 0)//可选货物数量为0，返回空
 	{
+		DL("没有货物可拿");
 		return NULL;
 	}
+	DL("可拿货物数量为：" + to_string(nearGoods.size()));
 	int maxcostPerId = 0;//储存三个货物中性价比最高的货物下标
-	int costPerformance0 = 0;//储存三个货物中最高的性价比（货物价值/距离的平方）
+	double costPerformance0 = 0;//储存三个货物中最高的性价比（货物价值/距离的平方）
 	for (int i = 0; i < nearGoods.size(); i++)
 	{
-		int costPerformance = goods[nearGoods[i].first].val / nearGoods[i].second;//储存当前的货物的性价比
+		DL("货物id为：" + to_string(goods[nearGoods[i].first].id) + " 距离为：" + to_string(nearGoods[i].second) + " 价值为：" + to_string(goods[nearGoods[i].first].val));
+		double costPerformance = goods[nearGoods[i].first].val / (double)nearGoods[i].second;//储存当前的货物的性价比
 		if (costPerformance > costPerformance0)//若当前货物性价比高于原定货物性价比，则替换
 		{
+			DL("性价最高的货物更新");
 			costPerformance0 = costPerformance;
 			maxcostPerId = nearGoods[i].first;
 		}
 	}
+	DL("要拿的货物id为：" + to_string(goods[maxcostPerId].id));
 	return &goods[maxcostPerId];//返回数组中性价比最高的货物的地址指针
 }
 
@@ -161,16 +169,27 @@ Robot::Robot()
 {
 }
 
-void Robot::ToGetGoods()
+void Robot::PlanGoods()
 {
-	tarGdPtr = SelectGoods();
+
+	tarGdPtr = new Goods(*SelectGoods());
 	if (tarGdPtr == NULL)
 	{
 		isInPath = 0;
 		return;
 	}
-	MoveTo(tarGdPtr->x, tarGdPtr->y);
-	isInPath = 1;
+	if (MoveTo(tarGdPtr->x, tarGdPtr->y))
+	{
+		isInPath = 1;
+	}
+	else
+	{
+		isInPath = 0;
+	}
+}
+
+void Robot::PlanPath()
+{
 }
 
 void Robot::ToPutGoods()
@@ -182,8 +201,14 @@ void Robot::ToPutGoods()
 		return;
 	}
 	pair<int, int> pos = berth[tarBerthId].GetAvailablePos(x, y);
-	MoveTo(pos.first, pos.second);
-	isInPath = -1;
+	if (MoveTo(pos.first, pos.second))
+	{
+		isInPath = -1;
+	}
+	else
+	{
+		isInPath = 0;
+	}
 }
 
 void Robot::Set(int id, int x, int y, int isCarrygoods, int status)
@@ -202,46 +227,67 @@ void Robot::FlushPos()
 	Towards tw;
 	if (curPathIndex < path.size())
 	{
-		tw = TwofNearPoint(path[curPathIndex].first, path[curPathIndex].second);
+		DL("当前处于路径下标：" + to_string(curPathIndex));
+		tw = TwofNearPoint();
 		if (Move(tw))
 		{
 			curPathIndex++;
 		}
 		else
 		{
-			curPathIndex--;
-			tw = TwofNearPoint(path[curPathIndex].first, path[curPathIndex].second);
-			if (!Move(tw))
+			DL("前进失败，开始后退");
+			if (curPathIndex >= 2)
 			{
-				curPathIndex++;
+				curPathIndex -= 2;
+				tw = TwofNearPoint();
+				if (!Move(tw))
+				{
+					DL("后退失败，静止不动，下次前进");
+					curPathIndex += 2;
+				}
+				else
+				{
+					DL("后退成功，下次前进");
+					curPathIndex++;
+				}
+			}
+			else
+			{
+				DL("退无可退，静止不动，下次前进");
 			}
 		}
 	}
 
 	if (curPathIndex >= path.size())
 	{
+		DL("路走完了");
 		if (isInPath == 1)
 		{
+			DL("到达货物点");
 			PickUp();
 			ToPutGoods();
 		}
 		else if (isInPath == -1)
 		{
+			DL("到达泊位点");
 			PutDown();
-			ToGetGoods();
+			PlanGoods();
 		}
 	}
 }
-void Robot::FlushAction()
+int Robot::FlushAction()
 {
 	if (isInPath == 1)
 	{
+		DL("机器人目标id为" + to_string(tarGdPtr->id));
 		if (gdMap[tarGdPtr->id])
 		{
+			DL("货物还在");
 			FlushPos();
 		}
 		else
 		{
+			DL("货物不在了");
 			isInPath = 0;
 		}
 	}
@@ -251,14 +297,92 @@ void Robot::FlushAction()
 	}
 	if (!isInPath)
 	{
-		ToGetGoods();
+		PlanGoods();
 	}
 }
-void Robot::MoveTo(int x, int y)
+bool cmp(heapNode a, heapNode b)   //建立小顶堆
+{
+	if (a.F > b.F) return true;
+	else return false;
+}
+bool Robot::MoveTo(int destX, int destY)
 {
 	path.clear();
 	curPathIndex = 0;
 
+	DL("机器人起点坐标：" + to_string(x) + " " + to_string(y));
+	DL("目标点为：" + to_string(destX) + " " + to_string(destY));
+	vector<heapNode> heap;
+	int isPassed[200][200] = { 0 };     //是否已经访问
+	int G[200][200] = { 0 };   //从起点到该点所走步数
+	int direction[200][200] = { 0 };   //来自哪个方向，1234：右左上下
+	isPassed[this->x][this->y] = 1;
+	heapNode temp_heapNode = { this->x,this->y,abs(this->x - x) + abs(this->y - y) };
+	heap.push_back(temp_heapNode);
+
+	while (isPassed[x][y] == 0)  //访问终点后结束循环
+	{
+		if (heap.size() == 0)
+		{
+			return false;
+		}
+		//将堆顶结点弹出
+		heapNode cur = *heap.begin();
+		pop_heap(heap.begin(), heap.end(), cmp);
+		heap.pop_back();
+		//将堆顶结点可到达且未访问的结点压入堆
+		if (isPassed[cur.x][cur.y + 1] == 0 && map[cur.x][cur.y + 1] != '#' && map[cur.x][cur.y + 1] != '*')
+		{   //判断右位置
+			isPassed[cur.x][cur.y + 1] = 1;
+			G[cur.x][cur.y + 1] = G[cur.x][cur.y] + 1;
+			direction[cur.x][cur.y + 1] = 1;
+			temp_heapNode.x = cur.x, temp_heapNode.y = cur.y + 1;
+			temp_heapNode.F = G[cur.x][cur.y + 1] + abs(cur.x - x) + abs(cur.y + 1 - y);
+			heap.push_back(temp_heapNode);
+		}
+		if (isPassed[cur.x][cur.y - 1] == 0 && map[cur.x][cur.y - 1] != '#' && map[cur.x][cur.y - 1] != '*')
+		{   //判断左位置
+			isPassed[cur.x][cur.y - 1] = 1;
+			G[cur.x][cur.y - 1] = G[cur.x][cur.y] + 1;
+			direction[cur.x][cur.y - 1] = 2;
+			temp_heapNode.x = cur.x, temp_heapNode.y = cur.y - 1;
+			temp_heapNode.F = G[cur.x][cur.y - 1] + abs(cur.x - x) + abs(cur.y - 1 - y);
+			heap.push_back(temp_heapNode);
+		}
+		if (isPassed[cur.x - 1][cur.y] == 0 && map[cur.x - 1][cur.y] != '#' && map[cur.x - 1][cur.y] != '*')
+		{   //判断上位置
+			isPassed[cur.x - 1][cur.y] = 1;
+			G[cur.x - 1][cur.y] = G[cur.x][cur.y] + 1;
+			direction[cur.x - 1][cur.y] = 3;
+			temp_heapNode.x = cur.x - 1, temp_heapNode.y = cur.y;
+			temp_heapNode.F = G[cur.x - 1][cur.y] + abs(cur.x - 1 - x) + abs(cur.y - y);
+			heap.push_back(temp_heapNode);
+		}
+		if (isPassed[cur.x + 1][cur.y] == 0 && map[cur.x + 1][cur.y] != '#' && map[cur.x + 1][cur.y] != '*')
+		{   //判断下位置
+			isPassed[cur.x + 1][cur.y] = 1;
+			G[cur.x + 1][cur.y] = G[cur.x][cur.y] + 1;
+			direction[cur.x + 1][cur.y] = 4;
+			temp_heapNode.x = cur.x + 1, temp_heapNode.y = cur.y;
+			temp_heapNode.F = G[cur.x + 1][cur.y] + abs(cur.x + 1 - x) + abs(cur.y - y);
+			heap.push_back(temp_heapNode);
+		}
+		push_heap(heap.begin(), heap.end(), cmp);   //建立小顶堆
+	}
+	int cur_x = x, cur_y = y;
+	while (cur_x != this->x || cur_y != this->y)   //当回溯到起点时结束循环
+	{
+		path.push_back(pair<int, int>(cur_x, cur_y));
+		switch (direction[cur_x][cur_y])
+		{
+		case 1:cur_y -= 1; break;
+		case 2:cur_y += 1; break;
+		case 3:cur_x += 1; break;
+		case 4:cur_x -= 1; break;
+		}
+	}
+	reverse(path.begin(), path.end());
+	return true;
 }
 ///////////////////////////////////////////////////////////////
 Berth::Berth()
@@ -347,14 +471,16 @@ int Berth::GetDistance(int x, int y)
 
 int Boat::SelectBerth()
 {
-	int maxValue = INT_MIN;//性价比最大值	
+	float maxValue = INT_MIN;//性价比最大值	
 	int maxId = -1;
 	for (int i = 0; i < berth_num; i++)
 	{
 		if (!berth[i].isBoatComing && berth[i].boat_id == -1)
 		{
-			if (berth[i].totalGoodsValue / berth[i].transport_time > maxValue)
+			float cv = berth[i].totalGoodsValue / (float)berth[i].transport_time;
+			if (cv > maxValue)
 			{
+				maxValue = cv;
 				maxId = i;
 			}
 		}
@@ -391,15 +517,11 @@ void Boat::GoToSell()
 
 bool Boat::IsOkToSell()
 {
-	if (goodsNum >= boat_capacity / 2)
+	if (goodsNum >= boat_capacity - 2)
 	{
 		return true;
 	}
-	if (goodsValue >= sell_price)
-	{
-		return true;
-	}
-	if (flushid - inBerthFlushId > 500)
+	if (flushid - inBerthFlushId > 2500)
 	{
 		return true;
 	}
@@ -479,6 +601,15 @@ bool Goods::IsAlive()
 	return birthflushid + 1000 >= flushid;
 }
 
+bool Goods::operator==(const Goods& gd)
+{
+	if (id == gd.id)
+	{
+		return true;
+	}
+	return false;
+}
+
 ///////////////////////////////////////////////////////////////
 //初始化
 void Manager::Init()
@@ -550,12 +681,25 @@ void Manager::ClearDeadGoods()
 
 void Manager::FlushOperation()
 {
+	DL("----------------------------------------------------帧id：" + to_string(flushid));
 	//清除死亡货物
 	ClearDeadGoods();
 	//机器人操作
+	queue<int> robotQueue;
 	for (int i = 0; i < robot_num; i++)
 	{
-		robot[i].FlushAction();
+		DL("----------------------------------机器人id:" + to_string(i));
+		robotQueue.push(i);
+	}
+	while (!robotQueue.empty())
+	{
+		int robotId = robotQueue.front();
+		robotQueue.pop();
+		int newId = robot[robotId].FlushAction();
+		if (newId != -1)
+		{
+			robotQueue.push(newId);
+		}
 	}
 	//船操作
 	for (int i = 0; i < boat_num; i++)

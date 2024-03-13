@@ -14,6 +14,7 @@ Boat boat[boat_num];
 
 int main()
 {
+	Logger::instance.Initialize(true, false, "LogMessage.txt");
 	Manager manager;
 	manager.Init();
 	for (int zhen = 1; zhen <= 15000; zhen++)
