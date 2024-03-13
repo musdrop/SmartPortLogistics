@@ -81,7 +81,7 @@ void Robot::PutDown()
 	//将放入泊位的货物加到泊位的货物列表中
 	berth[tarBerthId].AddGoods(tarGdPtr);
 	//从待选货物列表中彻底移除放入泊位的货物
-	goods.erase(remove(goods.begin(), goods.end(), *tarGdPtr), goods.end());
+	goods.erase(std::remove_if(goods.begin(), goods.end(), [&](const Goods& g) { return g.id == tarGdPtr->id; }), goods.end());
 	//将目标货物指针置空
 	delete tarGdPtr;
 	tarGdPtr = NULL;
@@ -98,7 +98,7 @@ Goods* Robot::SelectGoods()
 		if (gdMap[goods[i].id] == true)
 		{
 			DL("货物id为：" + to_string(goods[i].id));
-			int distance;//机器人与货物的距离平方
+			int distance;//机器人与货物的距离
 			distance = abs(goods[i].x - x) + abs(goods[i].y - y);
 			if (nearGoods.size() < 3)//当前可捡货物不足三件，直接添加至数组内
 			{
@@ -140,7 +140,6 @@ Goods* Robot::SelectGoods()
 		double costPerformance = goods[nearGoods[i].first].val / (double)nearGoods[i].second;//储存当前的货物的性价比
 		if (costPerformance > costPerformance0)//若当前货物性价比高于原定货物性价比，则替换
 		{
-			DL("性价最高的货物更新");
 			costPerformance0 = costPerformance;
 			maxcostPerId = nearGoods[i].first;
 		}
@@ -151,6 +150,7 @@ Goods* Robot::SelectGoods()
 
 int Robot::SelectBerth()
 {
+	DL("开始挑泊位");
 	int berthId = -1;
 	int nearst = INT_MAX;
 	for (int i = 0; i < berth_num; i++)
@@ -162,6 +162,7 @@ int Robot::SelectBerth()
 			berthId = i;
 		}
 	}
+	DL("选择的泊位id为：" + to_string(berthId));
 	return berthId;
 }
 
@@ -169,9 +170,8 @@ Robot::Robot()
 {
 }
 
-void Robot::PlanGoods()
+void Robot::ToGetGoods()
 {
-
 	tarGdPtr = new Goods(*SelectGoods());
 	if (tarGdPtr == NULL)
 	{
@@ -186,10 +186,6 @@ void Robot::PlanGoods()
 	{
 		isInPath = 0;
 	}
-}
-
-void Robot::PlanPath()
-{
 }
 
 void Robot::ToPutGoods()
@@ -271,11 +267,11 @@ void Robot::FlushPos()
 		{
 			DL("到达泊位点");
 			PutDown();
-			PlanGoods();
+			ToGetGoods();
 		}
 	}
 }
-int Robot::FlushAction()
+void Robot::FlushAction()
 {
 	if (isInPath == 1)
 	{
@@ -297,7 +293,7 @@ int Robot::FlushAction()
 	}
 	if (!isInPath)
 	{
-		PlanGoods();
+		ToGetGoods();
 	}
 }
 bool cmp(heapNode a, heapNode b)   //建立小顶堆
@@ -305,84 +301,155 @@ bool cmp(heapNode a, heapNode b)   //建立小顶堆
 	if (a.F > b.F) return true;
 	else return false;
 }
-bool Robot::MoveTo(int destX, int destY)
+bool isOutRange(int x, int y)
+{
+	return x >= 200 || x < 0 || y >= 200 || y < 0;
+}
+void change_F(int x, int y, int F, vector<heapNode>& path)
+{
+	for (int i = 0; i < path.size(); i++)
+	{
+		if (path[i].x == x && path[i].y == y)
+		{
+			path[i].F = F;
+			break;
+		}
+	}
+}
+bool Robot::MoveTo(int x, int y)
 {
 	path.clear();
 	curPathIndex = 0;
 
-	DL("机器人起点坐标：" + to_string(x) + " " + to_string(y));
-	DL("目标点为：" + to_string(destX) + " " + to_string(destY));
+	DL("机器人起点坐标：" + to_string(this->x) + " " + to_string(this->y));
+	DL("目标点为：" + to_string(x) + " " + to_string(y));
 	vector<heapNode> heap;
-	int isPassed[200][200] = { 0 };     //是否已经访问
+	int isPassed[200][200] = { 0 };     //未访问为0，在openlist为1，在closelist为2
 	int G[200][200] = { 0 };   //从起点到该点所走步数
 	int direction[200][200] = { 0 };   //来自哪个方向，1234：右左上下
-	isPassed[this->x][this->y] = 1;
 	heapNode temp_heapNode = { this->x,this->y,abs(this->x - x) + abs(this->y - y) };
 	heap.push_back(temp_heapNode);
+	heapNode cur;
 
+	bool flag = true;  //标记能否找到路径
 	while (isPassed[x][y] == 0)  //访问终点后结束循环
 	{
-		if (heap.size() == 0)
-		{
-			return false;
-		}
+
 		//将堆顶结点弹出
-		heapNode cur = *heap.begin();
-		pop_heap(heap.begin(), heap.end(), cmp);
-		heap.pop_back();
-		//将堆顶结点可到达且未访问的结点压入堆
-		if (isPassed[cur.x][cur.y + 1] == 0 && map[cur.x][cur.y + 1] != '#' && map[cur.x][cur.y + 1] != '*')
-		{   //判断右位置
-			isPassed[cur.x][cur.y + 1] = 1;
-			G[cur.x][cur.y + 1] = G[cur.x][cur.y] + 1;
-			direction[cur.x][cur.y + 1] = 1;
-			temp_heapNode.x = cur.x, temp_heapNode.y = cur.y + 1;
-			temp_heapNode.F = G[cur.x][cur.y + 1] + abs(cur.x - x) + abs(cur.y + 1 - y);
-			heap.push_back(temp_heapNode);
+		if (heap.size())
+		{
+			cur = *heap.begin();
+			pop_heap(heap.begin(), heap.end(), cmp);
+			heap.pop_back();
+			isPassed[cur.x][cur.y] = 2;
 		}
-		if (isPassed[cur.x][cur.y - 1] == 0 && map[cur.x][cur.y - 1] != '#' && map[cur.x][cur.y - 1] != '*')
-		{   //判断左位置
-			isPassed[cur.x][cur.y - 1] = 1;
-			G[cur.x][cur.y - 1] = G[cur.x][cur.y] + 1;
-			direction[cur.x][cur.y - 1] = 2;
-			temp_heapNode.x = cur.x, temp_heapNode.y = cur.y - 1;
-			temp_heapNode.F = G[cur.x][cur.y - 1] + abs(cur.x - x) + abs(cur.y - 1 - y);
-			heap.push_back(temp_heapNode);
+		else { flag = false; break; }
+		//将堆顶结点可到达且未访问的结点压入堆,且更新已在堆中的结点信息
+		//判断右位置
+		if (!isOutRange(cur.x, cur.y + 1) && isPassed[cur.x][cur.y + 1] != 2 && map[cur.x][cur.y + 1] != '#' && map[cur.x][cur.y + 1] != '*')
+		{
+			if (isPassed[cur.x][cur.y + 1] == 0)
+			{
+				isPassed[cur.x][cur.y + 1] = 1;
+				G[cur.x][cur.y + 1] = G[cur.x][cur.y] + 1;
+				direction[cur.x][cur.y + 1] = 1;
+				temp_heapNode.x = cur.x, temp_heapNode.y = cur.y + 1;
+				temp_heapNode.F = G[cur.x][cur.y + 1] + abs(cur.x - x) + abs(cur.y + 1 - y);
+				heap.push_back(temp_heapNode);
+			}
+			else {
+				if (G[cur.x][cur.y + 1] > G[cur.x][cur.y] + 1)
+				{
+					change_F(cur.x, cur.y + 1, G[cur.x][cur.y] + 1 + abs(cur.x - x) + abs(cur.y + 1 - y), heap);
+					direction[cur.x][cur.y + 1] = 1;
+				}
+			}
 		}
-		if (isPassed[cur.x - 1][cur.y] == 0 && map[cur.x - 1][cur.y] != '#' && map[cur.x - 1][cur.y] != '*')
-		{   //判断上位置
-			isPassed[cur.x - 1][cur.y] = 1;
-			G[cur.x - 1][cur.y] = G[cur.x][cur.y] + 1;
-			direction[cur.x - 1][cur.y] = 3;
-			temp_heapNode.x = cur.x - 1, temp_heapNode.y = cur.y;
-			temp_heapNode.F = G[cur.x - 1][cur.y] + abs(cur.x - 1 - x) + abs(cur.y - y);
-			heap.push_back(temp_heapNode);
+		//判断左位置
+		if (!isOutRange(cur.x, cur.y - 1) && isPassed[cur.x][cur.y - 1] != 2 && map[cur.x][cur.y - 1] != '#' && map[cur.x][cur.y - 1] != '*')
+		{
+			if (isPassed[cur.x][cur.y - 1] == 0)
+			{
+				isPassed[cur.x][cur.y - 1] = 1;
+				G[cur.x][cur.y - 1] = G[cur.x][cur.y] + 1;
+				direction[cur.x][cur.y - 1] = 2;
+				temp_heapNode.x = cur.x, temp_heapNode.y = cur.y - 1;
+				temp_heapNode.F = G[cur.x][cur.y - 1] + abs(cur.x - x) + abs(cur.y - 1 - y);
+				heap.push_back(temp_heapNode);
+			}
+			else {
+				if (G[cur.x][cur.y - 1] > G[cur.x][cur.y] + 1)
+				{
+					change_F(cur.x, cur.y - 1, G[cur.x][cur.y] + 1 + abs(cur.x - x) + abs(cur.y - 1 - y), heap);
+					direction[cur.x][cur.y - 1] = 2;
+				}
+			}
 		}
-		if (isPassed[cur.x + 1][cur.y] == 0 && map[cur.x + 1][cur.y] != '#' && map[cur.x + 1][cur.y] != '*')
-		{   //判断下位置
-			isPassed[cur.x + 1][cur.y] = 1;
-			G[cur.x + 1][cur.y] = G[cur.x][cur.y] + 1;
-			direction[cur.x + 1][cur.y] = 4;
-			temp_heapNode.x = cur.x + 1, temp_heapNode.y = cur.y;
-			temp_heapNode.F = G[cur.x + 1][cur.y] + abs(cur.x + 1 - x) + abs(cur.y - y);
-			heap.push_back(temp_heapNode);
+		//判断上位置
+		if (!isOutRange(cur.x - 1, cur.y) && isPassed[cur.x - 1][cur.y] != 2 && map[cur.x - 1][cur.y] != '#' && map[cur.x - 1][cur.y] != '*')
+		{
+			if (isPassed[cur.x - 1][cur.y] == 0)
+			{
+				isPassed[cur.x - 1][cur.y] = 1;
+				G[cur.x - 1][cur.y] = G[cur.x][cur.y] + 1;
+				direction[cur.x - 1][cur.y] = 3;
+				temp_heapNode.x = cur.x - 1, temp_heapNode.y = cur.y;
+				temp_heapNode.F = G[cur.x - 1][cur.y] + abs(cur.x - 1 - x) + abs(cur.y - y);
+				heap.push_back(temp_heapNode);
+			}
+			else {
+				if (G[cur.x - 1][cur.y] > G[cur.x][cur.y] + 1)
+				{
+					change_F(cur.x - 1, cur.y, G[cur.x][cur.y] + 1 + abs(cur.x - 1 - x) + abs(cur.y - y), heap);
+					direction[cur.x - 1][cur.y] = 3;
+				}
+			}
+		}
+		//判断下位置
+		if (!isOutRange(cur.x + 1, cur.y) && isPassed[cur.x + 1][cur.y] != 2 && map[cur.x + 1][cur.y] != '#' && map[cur.x + 1][cur.y] != '*')
+		{
+			if (isPassed[cur.x + 1][cur.y] == 0)
+			{
+				isPassed[cur.x + 1][cur.y] = 1;
+				G[cur.x + 1][cur.y] = G[cur.x][cur.y] + 1;
+				direction[cur.x + 1][cur.y] = 4;
+				temp_heapNode.x = cur.x + 1, temp_heapNode.y = cur.y;
+				temp_heapNode.F = G[cur.x + 1][cur.y] + abs(cur.x + 1 - x) + abs(cur.y - y);
+				heap.push_back(temp_heapNode);
+			}
+			else {
+				if (G[cur.x + 1][cur.y] > G[cur.x][cur.y] + 1)
+				{
+					change_F(cur.x + 1, cur.y, G[cur.x][cur.y] + 1 + abs(cur.x + 1 - x) + abs(cur.y - y), heap);
+					direction[cur.x + 1][cur.y] = 4;
+				}
+			}
 		}
 		push_heap(heap.begin(), heap.end(), cmp);   //建立小顶堆
 	}
+
 	int cur_x = x, cur_y = y;
-	while (cur_x != this->x || cur_y != this->y)   //当回溯到起点时结束循环
+	if (flag)   //如果可找到路径
 	{
-		path.push_back(pair<int, int>(cur_x, cur_y));
-		switch (direction[cur_x][cur_y])
+		DL("找到路径");
+		while (cur_x != this->x || cur_y != this->y)   //当回溯到起点时结束循环
 		{
-		case 1:cur_y -= 1; break;
-		case 2:cur_y += 1; break;
-		case 3:cur_x += 1; break;
-		case 4:cur_x -= 1; break;
+			DL("(" + to_string(cur_x) + "," + to_string(cur_y) + ")");
+			path.push_back(pair<int, int>(cur_x, cur_y));
+			switch (direction[cur_x][cur_y])
+			{
+			case 1:cur_y -= 1; break;
+			case 2:cur_y += 1; break;
+			case 3:cur_x += 1; break;
+			case 4:cur_x -= 1; break;
+			};
 		}
+		reverse(path.begin(), path.end());
+		DL("路径长度为：" + to_string(path.size()));
+		return true;    //找到路径返回true
 	}
-	reverse(path.begin(), path.end());
-	return true;
+	DL("找不到路径");
+	return false;     //找不到路径返回false
 }
 ///////////////////////////////////////////////////////////////
 Berth::Berth()
@@ -610,8 +677,46 @@ bool Goods::operator==(const Goods& gd)
 	return false;
 }
 
+
 ///////////////////////////////////////////////////////////////
 //初始化
+bool Manager::isAccessible(int x, int y)
+{
+	DL("当前货物坐标：" + to_string(x) + " " + to_string(y));
+	queue<pair<int, int>> q;
+
+	bool visited[N][N] = { false };
+
+	visited[x][y] = true;
+	q.push({ x, y });
+
+	int dx[] = { -1, 1, 0, 0 };
+	int dy[] = { 0, 0, -1, 1 };
+
+	while (!q.empty())
+	{
+		pair<int, int> curr = q.front();
+		q.pop();
+
+		for (int i = 0; i < 4; i++)
+		{
+			int nx = curr.first + dx[i];
+			int ny = curr.second + dy[i];
+			if (map[nx][ny] == 'B')
+			{
+				DL("可到达");
+				return true;
+			}
+			if (nx >= 0 && nx < N && ny >= 0 && ny < N && !visited[nx][ny] && (map[nx][ny] == '.' || map[nx][ny] == 'A'))
+			{
+				visited[nx][ny] = true;
+				q.push({ nx, ny });
+			}
+		}
+	}
+
+	return false;
+}
 void Manager::Init()
 {
 	for (int i = 0; i < N; i++)
@@ -643,6 +748,11 @@ void Manager::Input()
 	{
 		int x, y, val;
 		cin >> x >> y >> val;
+		if (!isAccessible(x, y))
+		{
+			DL("货物" + to_string(i) + "不可到达");
+			continue;
+		}
 		goods.push_back(Goods(total_goods, x, y, val, flushid));
 		gdMap[total_goods] = true;
 		total_goods++;
@@ -652,6 +762,13 @@ void Manager::Input()
 	{
 		int goods, x, y, sts;
 		cin >> goods >> x >> y >> sts;
+		if (flushid == 1)
+		{
+			if (!isAccessible(x, y))
+			{
+				robot[i].isAccesible = false;
+			}
+		}
 		robot[i].Set(i, x, y, goods, sts);
 	}
 	//读取船信息
@@ -685,21 +802,13 @@ void Manager::FlushOperation()
 	//清除死亡货物
 	ClearDeadGoods();
 	//机器人操作
-	queue<int> robotQueue;
 	for (int i = 0; i < robot_num; i++)
 	{
 		DL("----------------------------------机器人id:" + to_string(i));
-		robotQueue.push(i);
-	}
-	while (!robotQueue.empty())
-	{
-		int robotId = robotQueue.front();
-		robotQueue.pop();
-		int newId = robot[robotId].FlushAction();
-		if (newId != -1)
-		{
-			robotQueue.push(newId);
-		}
+		if (robot[i].isAccesible)
+			robot[i].FlushAction();
+		else
+			DL("该机器人不可到达");
 	}
 	//船操作
 	for (int i = 0; i < boat_num; i++)
