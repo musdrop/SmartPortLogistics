@@ -12,7 +12,8 @@ using namespace std;
 
 #define N 200//地图大小
 #define robot_num 10//机器人数量
-#define berth_num 10//泊位数量
+#define real_berth_num 10//实际泊位数量
+#define berth_num 5//采用的泊位数量
 #define boat_num 5//船数量
 
 struct heapNode {
@@ -65,12 +66,12 @@ public:
 class Berth
 {
 private:
-	int id;//泊位id
 	int ltx, lty;//泊位左上角坐标
 	int rbx, rby;//泊位右下角坐标
 	int loading_speed;//装货速度，每帧装货的货物数量
 	vector<Goods> berthGoods;//泊位上的货物
 public:
+	int id;//泊位id
 	int transport_time;//泊位到虚拟点的运输时间
 	int totalGoodsValue = 0;//泊位上货物总价值
 	bool isBoatComing = false;//是否有船在来此的路上
@@ -89,7 +90,7 @@ class Boat
 private:
 	int id;//船id
 	int status;//船状态,0表示移动(运输)中 1表示正常运行状态(即装货状态或运输完成状态) 2表示泊位外等待状态
-	int pos;//船当前位置或目标位置，-1表示虚拟点，0-9表示泊位
+	int pos;//船当前位置或目标位置，-1表示虚拟点，0-4表示泊位下标
 	int goodsNum = 0;//船上货物数量
 	int goodsValue = 0;//船上货物价值
 	int inBerthFlushId = -1;//进入泊位的帧id

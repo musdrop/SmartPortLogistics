@@ -9,7 +9,7 @@ extern vector<Goods> goods;//货物信息
 extern unordered_map<int, bool> gdMap;//货物id与是否可被捡起的映射
 
 extern Robot robot[robot_num];
-extern Berth berth[berth_num];
+extern Berth berth[real_berth_num];
 extern Boat boat[boat_num];
 
 bool Robot::Move(Towards tw)
@@ -539,20 +539,22 @@ int Berth::GetDistance(int x, int y)
 int Boat::SelectBerth()
 {
 	float maxValue = INT_MIN;//性价比最大值	
-	int maxId = -1;
+	int maxIdex = -1;
 	for (int i = 0; i < berth_num; i++)
 	{
+		DL("泊位的船id为：" + to_string(berth[i].boat_id) + " 泊位状态为：" + to_string(berth[i].isBoatComing));
 		if (!berth[i].isBoatComing && berth[i].boat_id == -1)
 		{
+			DL("第" + to_string(i) + "个泊位可用");
 			float cv = berth[i].totalGoodsValue / (float)berth[i].transport_time;
 			if (cv > maxValue)
 			{
 				maxValue = cv;
-				maxId = i;
+				maxIdex = i;
 			}
 		}
 	}
-	return maxId;
+	return maxIdex;
 }
 
 bool Boat::IsAvailable()
@@ -574,11 +576,13 @@ void Boat::ShipTo(int berthId)
 
 void Boat::GoToSell()
 {
+	DL("去虚拟点出售货物");
 	cout << "go " << id << endl;
 	//将船的货物数量和价值置为0
 	goodsNum = 0;
 	goodsValue = 0;
 	//将泊位的船状态置为无船
+	DL("泊位下标为：" + pos);
 	berth[pos].boat_id = -1;
 }
 
@@ -598,19 +602,22 @@ bool Boat::IsOkToSell()
 void Boat::ToLoadGoods()
 {
 	pos = SelectBerth();
+	//pos = id;
+	DL("选择的泊位下标为：" + to_string(pos));
 	if (pos == -1)
 	{
 		return;
 	}
 	//将泊位的船状态置为有船来
 	berth[pos].isBoatComing = true;
-	ShipTo(pos);
+	ShipTo(berth[pos].id);
 }
 
 void Boat::LoadGoods()
 {
 	if (berth[pos].isBoatComing)
 	{
+		DL("进入泊位");
 		//入泊位操作
 		berth[pos].isBoatComing = false;
 		berth[pos].boat_id = id;
@@ -630,6 +637,7 @@ void Boat::FlushAction()
 	//如果船不闲
 	if (!IsAvailable())
 	{
+		DL("船不闲");
 		//船在泊位上
 		if (status == 1)
 		{
@@ -644,6 +652,7 @@ void Boat::FlushAction()
 		//船在运输中什么也不用做
 		return;
 	}
+	DL("船闲");
 	//船闲的话安排船去泊位装货
 	ToLoadGoods();
 }
@@ -717,19 +726,24 @@ bool Manager::isAccessible(int x, int y)
 
 	return false;
 }
+bool cmp2(const Berth& a, const Berth& b)
+{
+	return a.transport_time < b.transport_time;
+}
 void Manager::Init()
 {
 	for (int i = 0; i < N; i++)
 		cin >> map[i];
 	//读取泊位信息
-	for (int i = 0; i < berth_num; i++)
+	for (int i = 0; i < real_berth_num; i++)
 	{
 		int id;
 		cin >> id;
 		int ltx, lty, transport_time, loading_speed;
 		cin >> ltx >> lty >> transport_time >> loading_speed;
-		berth[id].Set(id, ltx, lty, transport_time, loading_speed);
+		berth[i].Set(id, ltx, lty, transport_time, loading_speed);
 	}
+	sort(berth, berth + real_berth_num, cmp2);
 	//船的最大装货量
 	cin >> boat_capacity;
 	char okk[100];
@@ -813,6 +827,7 @@ void Manager::FlushOperation()
 	//船操作
 	for (int i = 0; i < boat_num; i++)
 	{
+		DL("----------------------------------船id:" + to_string(i));
 		boat[i].FlushAction();
 	}
 }

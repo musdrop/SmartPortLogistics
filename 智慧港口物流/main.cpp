@@ -9,7 +9,7 @@ vector<Goods> goods;//还未运到泊位的货物信息
 unordered_map<int, bool> gdMap;//货物id与是否可被捡起的映射
 
 Robot robot[robot_num];
-Berth berth[berth_num];
+Berth berth[real_berth_num];
 Boat boat[boat_num];
 
 int main()
