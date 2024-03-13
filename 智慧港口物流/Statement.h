@@ -50,7 +50,7 @@ private:
 	Towards TwofNearPoint();//根据坐标移动到相邻点
 	void PickUp();//捡货
 	void PutDown();//放货
-	Goods* SelectGoods();//选择离自己最近的货物,返回货物指针
+	Goods* SelectGoods(int& preRobot_ID);//选择离自己最近的货物,返回货物指针
 	int SelectBerth();//选择离自己最近的泊位,返回下标
 	bool MoveTo(int x, int y);//设定到目标点的路径 
 	void PlanGoods();//规划货物选择
@@ -118,7 +118,7 @@ public:
 	int x, y;//货物坐标
 	int val;//货物价值
 	int robot_id = -1;//打算搬运此货物的机器人id
-	float distance = INT_MAX;//货物到机器人的距离
+	double costPer = 0;//货物到当前分配机器人的性价比
 
 public:
 	Goods(int id = 0, int x = 0, int y = 0, int val = 0, int birthflushid = 0);

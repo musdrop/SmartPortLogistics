@@ -89,39 +89,43 @@ void Robot::PutDown()
 	tarBerthId = -1;
 }
 
-Goods* Robot::SelectGoods()
+Goods* Robot::SelectGoods(int &preRobot_ID)
 {
 	DL("开始挑货");
 	vector<pair<int, int>>nearGoods;//储存离机器人最近的三个货物的下标及距离
 	for (int i = 0; i < goods.size(); i++)
 	{
 		if (gdMap[goods[i].id] == true)
-		{
-			DL("货物id为：" + to_string(goods[i].id));
-			int distance;//机器人与货物的距离平方
+	    {
+			int distance;//机器人与货物的距离
 			distance = abs(goods[i].x - x) + abs(goods[i].y - y);
-			if (nearGoods.size() < 3)//当前可捡货物不足三件，直接添加至数组内
+			double costPerformance =(double)goods[i].val / (double)distance;//储存当前的货物的性价比
+			if (costPerformance > goods[i].costPer)
 			{
-				pair<int, int>a0;
-				a0.first = i;
-				a0.second = distance;
-				nearGoods.push_back(a0);
-			}
-			else
-			{
-				//寻找三个值中距离最长的与当前货物距离进行对比
-				int max = 0;
-				for (int j = 1; j < 3; j++)
+				DL("货物id为：" + to_string(goods[i].id));
+				if (nearGoods.size() < 3)//当前可捡货物不足三件，直接添加至数组内
 				{
-					if (nearGoods[j].second > nearGoods[max].second)
-					{
-						max = j;
-					}
+					pair<int, int>a0;
+					a0.first = i;
+					a0.second = distance;
+					nearGoods.push_back(a0);
 				}
-				if (nearGoods[max].second > distance)//若当前货物距离小于数组中最远的货物，则替换
+				else
 				{
-					nearGoods[max].first = i;
-					nearGoods[max].second = distance;
+					//寻找三个值中距离最长的与当前货物距离进行对比
+					int max = 0;
+					for (int j = 1; j < 3; j++)
+					{
+						if (nearGoods[j].second > nearGoods[max].second)
+						{
+							max = j;
+						}
+					}
+					if (nearGoods[max].second > distance)//若当前货物距离小于数组中最远的货物，则替换
+					{
+						nearGoods[max].first = i;
+						nearGoods[max].second = distance;
+					}
 				}
 			}
 		}
@@ -146,6 +150,12 @@ Goods* Robot::SelectGoods()
 		}
 	}
 	DL("要拿的货物id为：" + to_string(goods[maxcostPerId].id));
+	if (goods[maxcostPerId].robot_id != -1)//说明此货物此前并已经被分配
+	{
+		preRobot_ID = goods[maxcostPerId].robot_id;//将此前分配的机器人id赋给传入参数
+	}
+	goods[maxcostPerId].robot_id = this->id;//将当下机器人的id赋给货物
+	goods[maxcostPerId].costPer = costPerformance0;
 	return &goods[maxcostPerId];//返回数组中性价比最高的货物的地址指针
 }
 
