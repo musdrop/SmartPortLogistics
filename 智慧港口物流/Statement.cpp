@@ -676,7 +676,11 @@ void Boat::GoToSell()
 
 bool Boat::IsOkToSell()
 {
-	if (goodsNum >= boat_capacity - 2)
+	if (goodsNum >= boat_capacity)
+	{
+		return true;
+	}
+	if (flushid - inBerthFlushId > 1000 && goodsNum < 4)
 	{
 		return true;
 	}
@@ -829,22 +833,24 @@ void Manager::markAccessibleRobot(int x, int y, int berthPos)
 	{
 		pair<int, int> curr = q.front();
 		q.pop();
+		if (isdigit(map[curr.first][curr.second]))
+		{
+			DL("机器人" + to_string(map[curr.first][curr.second] - '0') + "可到达泊位下标为：" + to_string(berthPos));
+			robot[(int)(map[curr.first][curr.second] - '0')].AddAccessibleBerth(berthPos);
+		}
 
 		for (int i = 0; i < 4; i++)
 		{
 			int nx = curr.first + dx[i];
 			int ny = curr.second + dy[i];
-			if (isdigit(map[nx][ny]))
-			{
-				robot[(int)(map[nx][ny] - '0')].AddAccessibleBerth(berthPos);
-			}
-			if (nx >= 0 && nx < N && ny >= 0 && ny < N && !visited[nx][ny] && (map[nx][ny] == '.' || map[nx][ny] == 'A'))
+			if (nx >= 0 && nx < N && ny >= 0 && ny < N && !visited[nx][ny] && (map[nx][ny] == '.' || map[nx][ny] == 'A' || map[nx][ny] == 'B' || isdigit(map[nx][ny])))
 			{
 				visited[nx][ny] = true;
 				q.push({ nx, ny });
 			}
 		}
 	}
+	DL("泊位" + to_string(berthPos) + "ok");
 }
 bool cmp2(const Berth& a, const Berth& b)
 {
@@ -913,7 +919,9 @@ void Manager::Input()
 	{
 		for (int i = 0; i < real_berth_num; i++)
 		{
+			DL("开始:" + to_string(i));
 			markAccessibleRobot(berth[i].ltx, berth[i].lty, i);
+			DL("结束");
 		}
 	}
 	//读取船信息
