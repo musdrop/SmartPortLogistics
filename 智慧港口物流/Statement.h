@@ -13,7 +13,6 @@ using namespace std;
 #define N 200//地图大小
 #define robot_num 10//机器人数量
 #define real_berth_num 10//实际泊位数量
-#define berth_num 5//采用的泊位数量
 #define boat_num 5//船数量
 
 struct heapNode {
@@ -46,6 +45,8 @@ public:
 	int tarBerthId = -1;//目标泊位id
 	int isInPath = 0;//是否在路径中,-1去泊位，0是闲着，1去货物
 	bool isAccesible = true;//是否可到达
+	vector<int> unaccessGoods;//不可到达的货物
+	vector<int> accessibleBerth;//可到达的泊位
 private:
 	bool Move(Towards tw);//基础移动
 	Towards TwofNearPoint();//根据坐标移动到相邻点
@@ -54,23 +55,27 @@ private:
 	Goods* SelectGoods();//选择离自己最近的货物,返回货物指针
 	int SelectBerth();//选择离自己最近的泊位,返回下标
 	bool MoveTo(int x, int y);//设定到目标点的路径 
+	vector<pair<int, int>> GetPath(int x, int y);//获取路径
 	void ToGetGoods();//去拿货物
 	void ToPutGoods();//去放货物
 	void FlushPos();//每帧根据路径刷新位置
+	bool IsBerthAccessible(int berthPos);//判断泊位是否可到达
+	bool IsGoodsAccessible(int goodsId);
 public:
 	Robot();
 	void FlushAction();
 	void Set(int id, int x, int y, int isCarrygoods, int status);
+	void AddAccessibleBerth(int berthPos);
 };
 //泊位
 class Berth
 {
 private:
-	int ltx, lty;//泊位左上角坐标
 	int rbx, rby;//泊位右下角坐标
 	int loading_speed;//装货速度，每帧装货的货物数量
 	vector<Goods> berthGoods;//泊位上的货物
 public:
+	int ltx, lty;//泊位左上角坐标
 	int id;//泊位id
 	int transport_time;//泊位到虚拟点的运输时间
 	int totalGoodsValue = 0;//泊位上货物总价值
@@ -80,9 +85,9 @@ public:
 	Berth();
 	void Set(int id, int x, int y, int transport_time, int loading_speed);
 	pair<int, int> GetAvailablePos(int x, int y);//获取泊位上离机器人较近的可用位置
-	pair<int, int> GetGoods();
+	pair<int, int> GetGoods();//获取泊位上的货物
+	int GetDistance(int x, int y);//获取泊位到目标点的哈密顿距离
 	void AddGoods(Goods* gdPtr);//泊位上增加货物
-	int GetDistance(int x, int y);//返回某点到泊位的距离
 };
 //船
 class Boat
@@ -90,7 +95,7 @@ class Boat
 private:
 	int id;//船id
 	int status;//船状态,0表示移动(运输)中 1表示正常运行状态(即装货状态或运输完成状态) 2表示泊位外等待状态
-	int pos;//船当前位置或目标位置，-1表示虚拟点，0-4表示泊位下标
+	int pos = -1;//船当前位置或目标位置，-1表示虚拟点，0-4表示泊位下标
 	int goodsNum = 0;//船上货物数量
 	int goodsValue = 0;//船上货物价值
 	int inBerthFlushId = -1;//进入泊位的帧id
@@ -128,6 +133,7 @@ class Manager
 {
 private:
 	bool isAccessible(int x, int y);//判断货物是否可到达
+	void markAccessibleRobot(int x, int y, int berthPos);//标记可到达的机器人
 public:
 	void Init();//初始化
 	void Input();//每帧输入读取

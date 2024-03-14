@@ -7,6 +7,8 @@ extern char map[N][N];//港口地图
 extern int total_goods;//货物总数
 extern vector<Goods> goods;//货物信息
 extern unordered_map<int, bool> gdMap;//货物id与是否可被捡起的映射
+extern int berth_num;//采用的泊位数量
+
 
 extern Robot robot[robot_num];
 extern Berth berth[real_berth_num];
@@ -77,53 +79,64 @@ void Robot::PickUp()
 
 void Robot::PutDown()
 {
+	DL("开始放货");
 	cout << "pull " << id << endl;
+	DL("1");
 	//将放入泊位的货物加到泊位的货物列表中
+	DL("泊位下标为：" + to_string(tarBerthId));
+	DL("货物id为：" + to_string(tarGdPtr->id));
 	berth[tarBerthId].AddGoods(tarGdPtr);
+	DL("2");
 	//从待选货物列表中彻底移除放入泊位的货物
 	goods.erase(std::remove_if(goods.begin(), goods.end(), [&](const Goods& g) { return g.id == tarGdPtr->id; }), goods.end());
+	DL("3");
 	//将目标货物指针置空
 	delete tarGdPtr;
 	tarGdPtr = NULL;
+	DL("4");
 	//将目标泊位id置空
 	tarBerthId = -1;
+	DL("放货成功");
 }
 
 Goods* Robot::SelectGoods()
 {
 	DL("开始挑货");
-	vector<pair<int, int>>nearGoods;//储存离机器人最近的三个货物的下标及距离
+	vector<pair<int, int>>nearGoods;//储存离机器人最近的五个货物的下标及距离
 	for (int i = 0; i < goods.size(); i++)
 	{
 		if (gdMap[goods[i].id] == true)
 		{
 			DL("货物id为：" + to_string(goods[i].id));
-			int distance;//机器人与货物的距离
-			distance = abs(goods[i].x - x) + abs(goods[i].y - y);
-			if (nearGoods.size() < 3)//当前可捡货物不足三件，直接添加至数组内
+			int distance = abs(goods[i].x - x) + abs(goods[i].y - y);//机器人与货物的距离
+			if (distance != 0)
 			{
-				pair<int, int>a0;
-				a0.first = i;
-				a0.second = distance;
-				nearGoods.push_back(a0);
-			}
-			else
-			{
-				//寻找三个值中距离最长的与当前货物距离进行对比
-				int max = 0;
-				for (int j = 1; j < 3; j++)
+				if (nearGoods.size() < 5)//当前可捡货物不足五件，直接添加至数组内
 				{
-					if (nearGoods[j].second > nearGoods[max].second)
+					pair<int, int>a0;
+					a0.first = i;
+					a0.second = distance;
+					nearGoods.push_back(a0);
+				}
+				else
+				{
+					//寻找三个值中距离最长的与当前货物距离进行对比
+					int max = 0;
+					for (int j = 1; j < 5; j++)
 					{
-						max = j;
+						if (nearGoods[j].second > nearGoods[max].second)
+						{
+							max = j;
+						}
+					}
+					if (nearGoods[max].second > distance)//若当前货物距离小于数组中最远的货物，则替换
+					{
+						nearGoods[max].first = i;
+						nearGoods[max].second = distance;
 					}
 				}
-				if (nearGoods[max].second > distance)//若当前货物距离小于数组中最远的货物，则替换
-				{
-					nearGoods[max].first = i;
-					nearGoods[max].second = distance;
-				}
 			}
+
 		}
 	}
 	if (nearGoods.size() == 0)//可选货物数量为0，返回空
@@ -132,17 +145,27 @@ Goods* Robot::SelectGoods()
 		return NULL;
 	}
 	DL("可拿货物数量为：" + to_string(nearGoods.size()));
-	int maxcostPerId = 0;//储存三个货物中性价比最高的货物下标
+	int maxcostPerId = -1;//储存五个货物中性价比最高的货物下标
 	double costPerformance0 = 0;//储存三个货物中最高的性价比（货物价值/距离的平方）
 	for (int i = 0; i < nearGoods.size(); i++)
 	{
-		DL("货物id为：" + to_string(goods[nearGoods[i].first].id) + " 距离为：" + to_string(nearGoods[i].second) + " 价值为：" + to_string(goods[nearGoods[i].first].val));
+		nearGoods[i].second = GetPath(goods[nearGoods[i].first].x, goods[nearGoods[i].first].y).size();
+		if (nearGoods[i].second == 0)
+		{
+			continue;
+		}
+		DL("货物id为：" + to_string(goods[nearGoods[i].first].id) + " 规划路径距离为：" + to_string(nearGoods[i].second) + " 价值为：" + to_string(goods[nearGoods[i].first].val));
 		double costPerformance = goods[nearGoods[i].first].val / (double)nearGoods[i].second;//储存当前的货物的性价比
 		if (costPerformance > costPerformance0)//若当前货物性价比高于原定货物性价比，则替换
 		{
 			costPerformance0 = costPerformance;
 			maxcostPerId = nearGoods[i].first;
 		}
+	}
+	if (maxcostPerId == -1)//可选货物数量为0，返回空
+	{
+		DL("没有货物可拿");
+		return NULL;
 	}
 	DL("要拿的货物id为：" + to_string(goods[maxcostPerId].id));
 	return &goods[maxcostPerId];//返回数组中性价比最高的货物的地址指针
@@ -155,14 +178,19 @@ int Robot::SelectBerth()
 	int nearst = INT_MAX;
 	for (int i = 0; i < berth_num; i++)
 	{
-		int temdis = berth[i].GetDistance(x, y);
+		pair<int, int> pos = berth[i].GetAvailablePos(x, y);
+		int temdis = GetPath(pos.first, pos.second).size();
+		if (temdis == 0)
+		{
+			continue;
+		}
 		if (temdis < nearst)
 		{
 			nearst = temdis;
 			berthId = i;
 		}
 	}
-	DL("选择的泊位id为：" + to_string(berthId));
+	DL("选择的泊位下标为：" + to_string(berthId));
 	return berthId;
 }
 
@@ -172,14 +200,18 @@ Robot::Robot()
 
 void Robot::ToGetGoods()
 {
-	tarGdPtr = new Goods(*SelectGoods());
-	if (tarGdPtr == NULL)
+	DL("开始去拿货");
+	Goods* tptr = SelectGoods();
+	if (tptr == NULL)
 	{
+		DL("不执行规划函数");
 		isInPath = 0;
 		return;
 	}
+	tarGdPtr = new Goods(*tptr);
 	if (MoveTo(tarGdPtr->x, tarGdPtr->y))
 	{
+		DL("把isInPath置为1");
 		isInPath = 1;
 	}
 	else
@@ -191,10 +223,10 @@ void Robot::ToGetGoods()
 void Robot::ToPutGoods()
 {
 	tarBerthId = SelectBerth();
-	if (tarBerthId == -1)
+	while (tarBerthId == -1)
 	{
-		isInPath = -1;
-		return;
+		berth_num++;
+		tarBerthId = SelectBerth();
 	}
 	pair<int, int> pos = berth[tarBerthId].GetAvailablePos(x, y);
 	if (MoveTo(pos.first, pos.second))
@@ -271,8 +303,27 @@ void Robot::FlushPos()
 		}
 	}
 }
+bool Robot::IsGoodsAccessible(int goodsId)
+{
+	for (int i = 0; i < unaccessGoods.size(); i++)
+	{
+		if (unaccessGoods[i]==g)
+	}
+}
+bool Robot::IsBerthAccessible(int berthPos)
+{
+	for (int i = 0; i < accessibleBerth.size(); i++)
+	{
+		if (accessibleBerth[i] == berthPos)
+		{
+			return true;
+		}
+	}
+	return false;
+}
 void Robot::FlushAction()
 {
+	DL("IsInPath:" + to_string(isInPath));
 	if (isInPath == 1)
 	{
 		DL("机器人目标id为" + to_string(tarGdPtr->id));
@@ -323,6 +374,21 @@ bool Robot::MoveTo(int x, int y)
 
 	DL("机器人起点坐标：" + to_string(this->x) + " " + to_string(this->y));
 	DL("目标点为：" + to_string(x) + " " + to_string(y));
+
+	auto temPath = GetPath(x, y);
+	if (temPath.size() == 0)
+	{
+		return false;
+	}
+	else
+	{
+		path = temPath;
+		return true;
+	}
+}
+vector<pair<int, int>> Robot::GetPath(int x, int y)
+{
+	vector<pair<int, int>> tempPath;
 	vector<heapNode> heap;
 	int isPassed[200][200] = { 0 };     //未访问为0，在openlist为1，在closelist为2
 	int G[200][200] = { 0 };   //从起点到该点所走步数
@@ -435,7 +501,7 @@ bool Robot::MoveTo(int x, int y)
 		while (cur_x != this->x || cur_y != this->y)   //当回溯到起点时结束循环
 		{
 			DL("(" + to_string(cur_x) + "," + to_string(cur_y) + ")");
-			path.push_back(pair<int, int>(cur_x, cur_y));
+			tempPath.push_back(pair<int, int>(cur_x, cur_y));
 			switch (direction[cur_x][cur_y])
 			{
 			case 1:cur_y -= 1; break;
@@ -444,12 +510,12 @@ bool Robot::MoveTo(int x, int y)
 			case 4:cur_x -= 1; break;
 			};
 		}
-		reverse(path.begin(), path.end());
-		DL("路径长度为：" + to_string(path.size()));
-		return true;    //找到路径返回true
+		reverse(tempPath.begin(), tempPath.end());
+		DL("路径长度为：" + to_string(tempPath.size()));
+		return tempPath;    //找到路径返回tr
 	}
 	DL("找不到路径");
-	return false;     //找不到路径返回false
+	return vector<pair<int, int>>();     //找不到路径返回
 }
 ///////////////////////////////////////////////////////////////
 Berth::Berth()
@@ -523,16 +589,15 @@ pair<int, int> Berth::GetGoods()
 	totalGoodsValue -= num_value.second;
 	return num_value;
 }
-
+int Berth::GetDistance(int x, int y)
+{
+	return abs(ltx - x) + abs(lty - y);
+}
 void Berth::AddGoods(Goods* gdPtr)
 {
 	Goods gd = *gdPtr;
 	berthGoods.push_back(gd);
 	totalGoodsValue += gd.val;
-}
-int Berth::GetDistance(int x, int y)
-{
-	return abs(ltx - x) + abs(lty - y);
 }
 ///////////////////////////////////////////////////////////////
 
@@ -584,6 +649,7 @@ void Boat::GoToSell()
 	//将泊位的船状态置为无船
 	DL("泊位下标为：" + pos);
 	berth[pos].boat_id = -1;
+	pos = -1;
 }
 
 bool Boat::IsOkToSell()
@@ -592,7 +658,7 @@ bool Boat::IsOkToSell()
 	{
 		return true;
 	}
-	if (flushid - inBerthFlushId > 2500)
+	if (15000 - flushid <= berth[pos].transport_time + 5)
 	{
 		return true;
 	}
@@ -660,7 +726,7 @@ void Boat::FlushAction()
 void Boat::Set(int id, int status, int pos)
 {
 	this->id = id;
-	this->pos = pos;
+	//this->pos = pos;
 	this->status = status;
 }
 ///////////////////////////////////////////////////////////////
