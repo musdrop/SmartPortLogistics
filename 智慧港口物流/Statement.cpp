@@ -126,7 +126,7 @@ Goods* Robot::SelectGoods()
 				{
 					//寻找三个值中距离最长的与当前货物距离进行对比
 					int max = 0;
-					for (int j = 1; j < 5; j++)
+					for (int j = 1; j < 3; j++)
 					{
 						if (nearGoods[j].second > nearGoods[max].second)
 						{
@@ -149,11 +149,10 @@ Goods* Robot::SelectGoods()
 		return NULL;
 	}
 	DL("可拿货物数量为：" + to_string(nearGoods.size()));
-	int maxcostPerId = -1;//储存五个货物中性价比最高的货物下标
+	int maxcostPerId = -1;//储存三个货物中性价比最高的货物下标
 	double costPerformance0 = 0;//储存三个货物中最高的性价比（货物价值/距离的平方）
 	for (int i = 0; i < nearGoods.size(); i++)
 	{
-		nearGoods[i].second = GetPath(goods[nearGoods[i].first].x, goods[nearGoods[i].first].y).size();
 		if (nearGoods[i].second == 0)
 		{
 			continue;
@@ -838,7 +837,6 @@ void Manager::markAccessibleRobot(int x, int y, int berthPos)
 			if (isdigit(map[nx][ny]))
 			{
 				robot[(int)(map[nx][ny] - '0')].AddAccessibleBerth(berthPos);
-				map[nx][ny] = 'A';
 			}
 			if (nx >= 0 && nx < N && ny >= 0 && ny < N && !visited[nx][ny] && (map[nx][ny] == '.' || map[nx][ny] == 'A'))
 			{
@@ -904,8 +902,11 @@ void Manager::Input()
 			{
 				robot[i].isAccesible = false;
 			}
+			else
+			{
+				map[x][y] = '0' + i;
+			}
 		}
-		map[x][y] = '0' + i;
 		robot[i].Set(i, x, y, goods, sts);
 	}
 	if (flushid == 1)
