@@ -60,7 +60,7 @@ private:
 	void ToPutGoods();//去放货物
 	void FlushPos();//每帧根据路径刷新位置
 	bool IsBerthAccessible(int berthPos);//判断泊位是否可到达
-	bool IsGoodsAccessible(int goodsId);
+	bool IsGoodsAccessible(int goodsId);//判断货物是否可到达
 public:
 	Robot();
 	void FlushAction();

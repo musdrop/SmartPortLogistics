@@ -102,16 +102,20 @@ void Robot::PutDown()
 Goods* Robot::SelectGoods()
 {
 	DL("开始挑货");
-	vector<pair<int, int>>nearGoods;//储存离机器人最近的五个货物的下标及距离
+	vector<pair<int, int>>nearGoods;//储存离机器人最近的三个货物的下标及距离
 	for (int i = 0; i < goods.size(); i++)
 	{
 		if (gdMap[goods[i].id] == true)
 		{
+			if (!IsGoodsAccessible(goods[i].id))//此货物不可到达
+			{
+				continue;
+			}
 			DL("货物id为：" + to_string(goods[i].id));
 			int distance = abs(goods[i].x - x) + abs(goods[i].y - y);//机器人与货物的距离
 			if (distance != 0)
 			{
-				if (nearGoods.size() < 5)//当前可捡货物不足五件，直接添加至数组内
+				if (nearGoods.size() < 3)//当前可捡货物不足五件，直接添加至数组内
 				{
 					pair<int, int>a0;
 					a0.first = i;
@@ -178,8 +182,7 @@ int Robot::SelectBerth()
 	int nearst = INT_MAX;
 	for (int i = 0; i < berth_num; i++)
 	{
-		pair<int, int> pos = berth[i].GetAvailablePos(x, y);
-		int temdis = GetPath(pos.first, pos.second).size();
+		int temdis = berth[i].GetDistance(x, y);
 		if (temdis == 0)
 		{
 			continue;
@@ -250,6 +253,10 @@ void Robot::Set(int id, int x, int y, int isCarrygoods, int status)
 	}
 	this->status = status;
 }
+void Robot::AddAccessibleBerth(int berthPos)
+{
+	accessibleBerth.push_back(berthPos);
+}
 void Robot::FlushPos()
 {
 	Towards tw;
@@ -307,8 +314,12 @@ bool Robot::IsGoodsAccessible(int goodsId)
 {
 	for (int i = 0; i < unaccessGoods.size(); i++)
 	{
-		if (unaccessGoods[i]==g)
+		if (unaccessGoods[i] == goodsId)
+		{
+			return false;
+		}
 	}
+	return true;
 }
 bool Robot::IsBerthAccessible(int berthPos)
 {
