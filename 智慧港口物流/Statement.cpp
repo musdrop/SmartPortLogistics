@@ -182,11 +182,11 @@ int Robot::SelectBerth()
 	int nearst = INT_MAX;
 	for (int i = 0; i < berth_num; i++)
 	{
-		int temdis = berth[i].GetDistance(x, y);
-		if (temdis == 0)
+		if (!IsBerthAccessible(i))
 		{
 			continue;
 		}
+		int temdis = berth[i].GetDistance(x, y);
 		if (temdis < nearst)
 		{
 			nearst = temdis;
@@ -204,12 +204,23 @@ Robot::Robot()
 void Robot::ToGetGoods()
 {
 	DL("开始去拿货");
-	Goods* tptr = SelectGoods();
+	Goods* tptr = SelectGoods();//第一次选货
 	if (tptr == NULL)
 	{
 		DL("不执行规划函数");
 		isInPath = 0;
 		return;
+	}
+	while (!GetPath(tptr->x, tptr->y).size())//若所选货物无法规划处路径则执行循环
+	{
+		unaccessGoods.push_back(tptr->id);
+		tptr = SelectGoods();//再次选货
+		if (tptr == NULL)
+		{
+			DL("不执行规划函数");
+			isInPath = 0;
+			return;
+		}
 	}
 	tarGdPtr = new Goods(*tptr);
 	if (MoveTo(tarGdPtr->x, tarGdPtr->y))
@@ -357,6 +368,7 @@ void Robot::FlushAction()
 	{
 		ToGetGoods();
 	}
+	unaccessGoods.clear();//该帧结束时清空机器人标记不可达货物数组
 }
 bool cmp(heapNode a, heapNode b)   //建立小顶堆
 {
@@ -793,6 +805,41 @@ bool Manager::isAccessible(int x, int y)
 				DL("可到达");
 				return true;
 			}
+			if (nx >= 0 && nx < N && ny >= 0 && ny < N && !visited[nx][ny] && (map[nx][ny] == '.' || map[nx][ny] == 'A' || isdigit(map[nx][ny])))
+			{
+				visited[nx][ny] = true;
+				q.push({ nx, ny });
+			}
+		}
+	}
+	return false;
+}
+void Manager::markAccessibleRobot(int x, int y, int berthPos)
+{
+	queue<pair<int, int>> q;
+
+	bool visited[N][N] = { false };
+
+	visited[x][y] = true;
+	q.push({ x, y });
+
+	int dx[] = { -1, 1, 0, 0 };
+	int dy[] = { 0, 0, -1, 1 };
+
+	while (!q.empty())
+	{
+		pair<int, int> curr = q.front();
+		q.pop();
+
+		for (int i = 0; i < 4; i++)
+		{
+			int nx = curr.first + dx[i];
+			int ny = curr.second + dy[i];
+			if (isdigit(map[nx][ny]))
+			{
+				robot[(int)(map[nx][ny] - '0')].AddAccessibleBerth(berthPos);
+				map[nx][ny] = 'A';
+			}
 			if (nx >= 0 && nx < N && ny >= 0 && ny < N && !visited[nx][ny] && (map[nx][ny] == '.' || map[nx][ny] == 'A'))
 			{
 				visited[nx][ny] = true;
@@ -800,8 +847,6 @@ bool Manager::isAccessible(int x, int y)
 			}
 		}
 	}
-
-	return false;
 }
 bool cmp2(const Berth& a, const Berth& b)
 {
@@ -860,7 +905,15 @@ void Manager::Input()
 				robot[i].isAccesible = false;
 			}
 		}
+		map[x][y] = '0' + i;
 		robot[i].Set(i, x, y, goods, sts);
+	}
+	if (flushid == 1)
+	{
+		for (int i = 0; i < real_berth_num; i++)
+		{
+			markAccessibleRobot(berth[i].ltx, berth[i].lty, i);
+		}
 	}
 	//读取船信息
 	for (int i = 0; i < boat_num; i++)
