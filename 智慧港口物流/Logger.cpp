@@ -4,7 +4,8 @@ Logger::Logger()
 {
 	isConsoleOn = true;
 }
-
+#ifdef _WIN32
+// Windows平台的代码
 Logger::~Logger()
 {
 	instance << "---程序停止运行---" << endl;
@@ -72,3 +73,50 @@ Logger& Logger::operator<<(ostream& (*log_info)(ostream&))
 	logfile.flush();
 	return *this;
 }
+#elif __linux__
+// Linux平台的代码
+Logger::~Logger()
+{
+	instance << "---程序停止运行---" << endl;
+	logfile.close();
+}
+
+void Logger::Initialize(bool isRestart, bool isConsoleOn, string filename)
+{
+	this->isConsoleOn = isConsoleOn;
+}
+Logger& Logger::operator<<(const char* log_info)
+{
+	return *this;
+}
+Logger& Logger::operator<<(int log_info)
+{
+	return *this;
+}
+Logger& Logger::operator<<(string log_info)
+{
+	return *this;
+}
+Logger& Logger::operator<<(char log_info)
+{
+	return *this;
+}
+Logger& Logger::operator<<(double log_info)
+{
+	return *this;
+}
+Logger& Logger::operator<<(float log_info)
+{
+	return *this;
+}
+Logger& Logger::operator<<(bool log_info)
+{
+	return *this;
+}
+Logger& Logger::operator<<(ostream& (*log_info)(ostream&))
+{
+	return *this;
+}
+#else
+#error "Unknown platform"
+#endif
