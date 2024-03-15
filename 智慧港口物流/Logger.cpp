@@ -7,7 +7,7 @@ Logger::Logger()
 
 Logger::~Logger()
 {
-	Debug_Log("---程序停止运行---");
+	instance << "---程序停止运行---" << endl;
 	logfile.close();
 }
 
@@ -29,13 +29,46 @@ void Logger::Initialize(bool isRestart, bool isConsoleOn, string filename)
 		exit(1);
 	}
 	this->isConsoleOn = isConsoleOn;
-	Debug_Log("---程序开始运行---");
+	instance << "---程序开始运行---" << endl;
 }
-
-void Logger::Debug_Log(string log_info)
+Logger& Logger::operator<<(const char* log_info)
 {
-	//输出日志信息
-	logfile << log_info << std::endl;
-	//刷新缓冲区
+	logfile << log_info;
+	return *this;
+}
+Logger& Logger::operator<<(int log_info)
+{
+	logfile << log_info;
+	return *this;
+}
+Logger& Logger::operator<<(string log_info)
+{
+	logfile << log_info;
+	return *this;
+}
+Logger& Logger::operator<<(char log_info)
+{
+	logfile << log_info;
+	return *this;
+}
+Logger& Logger::operator<<(double log_info)
+{
+	logfile << log_info;
+	return *this;
+}
+Logger& Logger::operator<<(float log_info)
+{
+	logfile << log_info;
+	return *this;
+}
+Logger& Logger::operator<<(bool log_info)
+{
+	logfile << log_info ? "true" : "false";
+	return *this;
+}
+Logger& Logger::operator<<(ostream& (*log_info)(ostream&))
+{
+	logfile << log_info;
 	logfile.flush();
+	return *this;
 }

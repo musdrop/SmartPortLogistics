@@ -7,7 +7,7 @@
 #include <algorithm>
 #include "Logger.h"
 using namespace std;
-#define DL Logger::instance.Debug_Log
+#define DL Logger::instance
 
 
 #define N 200//地图大小
