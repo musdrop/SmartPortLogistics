@@ -34,13 +34,12 @@ class Robot
 {
 private:
 	int id;//机器人id
-	int x, y;//当前x,y坐标
 	bool status = true;//是否正常运行
-
 	char preGround = '.';//上一帧机器人所在位置的地面类型
 	vector<pair<int, int>> path;//机器人当前路径
 	int curPathIndex = 0;//当前路径的下标
 public:
+	int x, y;//当前x,y坐标
 	Goods* tarGdPtr = NULL;//目标货物指针
 	int tarBerthId = -1;//目标泊位id
 	int isInPath = 0;//是否在路径中,-1去泊位，0是闲着，1去货物
@@ -131,9 +130,13 @@ public:
 //全局管理类
 class Manager
 {
+public:
+	vector<vector<int>>AccessBerthPos;//表示对应下标机器人可到达泊位下标
+	vector<pair<int, int>>RobotXY;
 private:
 	bool isAccessible(int x, int y);//判断货物是否可到达
 	void markAccessibleRobot(int x, int y, int berthPos);//标记可到达的机器人
+
 public:
 	void Init();//初始化
 	void Input();//每帧输入读取

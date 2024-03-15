@@ -792,7 +792,7 @@ bool Manager::isAccessible(int x, int y)
 	}
 	return false;
 }
-void Manager::markAccessibleRobot(int x, int y, int berthPos)
+void Manager::markAccessibleRobot(int x, int y, int berthPos)//表示更改的加可到达泊位属性
 {
 	queue<pair<int, int>> q;
 
@@ -808,11 +808,26 @@ void Manager::markAccessibleRobot(int x, int y, int berthPos)
 	{
 		pair<int, int> curr = q.front();
 		q.pop();
-		if (isdigit(map[curr.first][curr.second]))
-		{
-			robot[(int)(map[curr.first][curr.second] - '0')].AddAccessibleBerth(berthPos);
+		if (map[curr.first][curr.second] == 'A')
+		{//将机器人所在位置的坐标存于泊位的可到达机器人数组里
+			int r = 0;//标志位，若所到达机器人已经在vector容器里面，则赋值为1
+			for (int i = 0; i < RobotXY.size(); i++)
+			{
+				if (RobotXY[i].first == curr.first && RobotXY[i].second == curr.second)//所到达机器人已经在vector容器里面
+				{
+					AccessBerthPos[i].push_back(berthPos);
+					r = 1;
+					break;
+				}
+			}
+			if (r == 0)//所到达机器人还未被到达过
+			{
+				RobotXY.push_back({ curr.first ,curr.second });
+				vector<int>a0;
+				a0.push_back(berthPos);
+				AccessBerthPos.push_back(a0);
+			}
 		}
-
 		for (int i = 0; i < 4; i++)
 		{
 			int nx = curr.first + dx[i];
@@ -825,6 +840,39 @@ void Manager::markAccessibleRobot(int x, int y, int berthPos)
 		}
 	}
 }
+//void Manager::markAccessibleRobot(int x, int y, int berthPos)
+//{
+//	queue<pair<int, int>> q;
+//
+//	bool visited[N][N] = { false };
+//
+//	visited[x][y] = true;
+//	q.push({ x, y });
+//
+//	int dx[] = { -1, 1, 0, 0 };
+//	int dy[] = { 0, 0, -1, 1 };
+//
+//	while (!q.empty())
+//	{
+//		pair<int, int> curr = q.front();
+//		q.pop();
+//		if (isdigit(map[curr.first][curr.second]))
+//		{
+//			robot[(int)(map[curr.first][curr.second] - '0')].AddAccessibleBerth(berthPos);
+//		}
+//
+//		for (int i = 0; i < 4; i++)
+//		{
+//			int nx = curr.first + dx[i];
+//			int ny = curr.second + dy[i];
+//			if (nx >= 0 && nx < N && ny >= 0 && ny < N && !visited[nx][ny] && (map[nx][ny] == '.' || map[nx][ny] == 'A' || map[nx][ny] == 'B' || isdigit(map[nx][ny])))
+//			{
+//				visited[nx][ny] = true;
+//				q.push({ nx, ny });
+//			}
+//		}
+//	}
+//}
 bool cmp2(const Berth& a, const Berth& b)
 {
 	return a.transport_time < b.transport_time;
@@ -841,6 +889,7 @@ void Manager::Init()
 		int ltx, lty, transport_time, loading_speed;
 		cin >> ltx >> lty >> transport_time >> loading_speed;
 		berth[i].Set(id, ltx, lty, transport_time, loading_speed);
+		markAccessibleRobot(berth[i].ltx, berth[i].lty, i);
 	}
 	sort(berth, berth + real_berth_num, cmp2);
 	//船的最大装货量
@@ -889,9 +938,18 @@ void Manager::Input()
 	}
 	if (flushid == 1)
 	{
-		for (int i = 0; i < real_berth_num; i++)
+		for (int i = 0; i < robot_num; i++)
 		{
-			markAccessibleRobot(berth[i].ltx, berth[i].lty, i);
+			for (int j = 0; j < RobotXY.size(); j++)
+			{
+				if (robot[i].x == RobotXY[j].first && robot[i].y == RobotXY[j].second)
+				{
+					for (int k = 0; k < AccessBerthPos.size(); k++)
+					{
+						robot[i].AddAccessibleBerth(AccessBerthPos[j][k]);
+					}
+				}
+			}
 		}
 	}
 	//读取船信息
