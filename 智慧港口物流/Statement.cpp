@@ -254,13 +254,15 @@ void Robot::FlushPos()
 		tw = TwofNearPoint();
 		if (Move(tw))
 		{
+			DL << "前进成功" << endl;
 			curPathIndex++;
 		}
 		else
 		{
-			//退无可退扩展起点
+			//退无可退增加起点
 			if (curPathIndex < 2)
 			{
+				DL << "退无可退新增起点" << endl;
 				curPathIndex--;
 				auto curPos = path[curPathIndex];
 				curPathIndex++;
@@ -270,7 +272,7 @@ void Robot::FlushPos()
 				{
 					int nx = curPos.first + diffx[i];
 					int ny = curPos.second + diffy[i];
-					if (nx != path[curPathIndex].first && ny != path[curPathIndex].second && (map[nx][ny] != '#' || map[nx][ny] != '*'))
+					if (nx != path[curPathIndex].first && ny != path[curPathIndex].second && map[nx][ny] != '#' && map[nx][ny] != '*')
 					{
 						auto newStartPos = pair<int, int>(nx, ny);
 						path.insert(path.begin(), newStartPos);
@@ -286,10 +288,12 @@ void Robot::FlushPos()
 				tw = TwofNearPoint();
 				if (!Move(tw))
 				{
+					DL << "后退失败" << endl;
 					curPathIndex += 2;
 				}
 				else
 				{
+					DL << "后退成功" << endl;
 					curPathIndex++;
 				}
 			}
