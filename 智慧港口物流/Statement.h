@@ -34,12 +34,12 @@ class Robot
 {
 private:
 	int id;//机器人id
+	int x, y;//当前x,y坐标
 	bool status = true;//是否正常运行
 	char preGround = '.';//上一帧机器人所在位置的地面类型
 	vector<pair<int, int>> path;//机器人当前路径
 	int curPathIndex = 0;//当前路径的下标
 public:
-	int x, y;//当前x,y坐标
 	Goods* tarGdPtr = NULL;//目标货物指针
 	int tarBerthId = -1;//目标泊位id
 	int isInPath = 0;//是否在路径中,-1去泊位，0是闲着，1去货物

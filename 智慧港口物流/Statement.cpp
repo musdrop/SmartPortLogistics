@@ -809,7 +809,8 @@ void Manager::markAccessibleRobot(int x, int y, int berthPos)//表示更改的�
 		pair<int, int> curr = q.front();
 		q.pop();
 		if (map[curr.first][curr.second] == 'A')
-		{//将机器人所在位置的坐标存于泊位的可到达机器人数组里
+		{
+			//将机器人所在位置的坐标存于泊位的可到达机器人数组里
 			int r = 0;//标志位，若所到达机器人已经在vector容器里面，则赋值为1
 			for (int i = 0; i < RobotXY.size(); i++)
 			{
@@ -832,7 +833,7 @@ void Manager::markAccessibleRobot(int x, int y, int berthPos)//表示更改的�
 		{
 			int nx = curr.first + dx[i];
 			int ny = curr.second + dy[i];
-			if (nx >= 0 && nx < N && ny >= 0 && ny < N && !visited[nx][ny] && (map[nx][ny] == '.' || map[nx][ny] == 'A' || map[nx][ny] == 'B' || isdigit(map[nx][ny])))
+			if (nx >= 0 && nx < N && ny >= 0 && ny < N && !visited[nx][ny] && (map[nx][ny] == '.' || map[nx][ny] == 'A' || map[nx][ny] == 'B'))
 			{
 				visited[nx][ny] = true;
 				q.push({ nx, ny });
@@ -840,39 +841,6 @@ void Manager::markAccessibleRobot(int x, int y, int berthPos)//表示更改的�
 		}
 	}
 }
-//void Manager::markAccessibleRobot(int x, int y, int berthPos)
-//{
-//	queue<pair<int, int>> q;
-//
-//	bool visited[N][N] = { false };
-//
-//	visited[x][y] = true;
-//	q.push({ x, y });
-//
-//	int dx[] = { -1, 1, 0, 0 };
-//	int dy[] = { 0, 0, -1, 1 };
-//
-//	while (!q.empty())
-//	{
-//		pair<int, int> curr = q.front();
-//		q.pop();
-//		if (isdigit(map[curr.first][curr.second]))
-//		{
-//			robot[(int)(map[curr.first][curr.second] - '0')].AddAccessibleBerth(berthPos);
-//		}
-//
-//		for (int i = 0; i < 4; i++)
-//		{
-//			int nx = curr.first + dx[i];
-//			int ny = curr.second + dy[i];
-//			if (nx >= 0 && nx < N && ny >= 0 && ny < N && !visited[nx][ny] && (map[nx][ny] == '.' || map[nx][ny] == 'A' || map[nx][ny] == 'B' || isdigit(map[nx][ny])))
-//			{
-//				visited[nx][ny] = true;
-//				q.push({ nx, ny });
-//			}
-//		}
-//	}
-//}
 bool cmp2(const Berth& a, const Berth& b)
 {
 	return a.transport_time < b.transport_time;
@@ -889,9 +857,12 @@ void Manager::Init()
 		int ltx, lty, transport_time, loading_speed;
 		cin >> ltx >> lty >> transport_time >> loading_speed;
 		berth[i].Set(id, ltx, lty, transport_time, loading_speed);
-		markAccessibleRobot(berth[i].ltx, berth[i].lty, i);
 	}
 	sort(berth, berth + real_berth_num, cmp2);
+	for (int i = 0; i < real_berth_num; i++)
+	{
+		markAccessibleRobot(berth[i].ltx, berth[i].lty, i);
+	}
 	//船的最大装货量
 	cin >> boat_capacity;
 	char okk[100];
@@ -925,32 +896,24 @@ void Manager::Input()
 		cin >> goods >> x >> y >> sts;
 		if (flushid == 1)
 		{
-			if (!isAccessible(x, y))
+			int j;
+			for (j = 0; j < RobotXY.size(); j++)
 			{
-				robot[i].isAccesible = false;
-			}
-			else
-			{
-				map[x][y] = '0' + i;
-			}
-		}
-		robot[i].Set(i, x, y, goods, sts);
-	}
-	if (flushid == 1)
-	{
-		for (int i = 0; i < robot_num; i++)
-		{
-			for (int j = 0; j < RobotXY.size(); j++)
-			{
-				if (robot[i].x == RobotXY[j].first && robot[i].y == RobotXY[j].second)
+				if (x == RobotXY[j].first && y == RobotXY[j].second)
 				{
-					for (int k = 0; k < AccessBerthPos.size(); k++)
+					for (int k = 0; k < AccessBerthPos[j].size(); k++)
 					{
 						robot[i].AddAccessibleBerth(AccessBerthPos[j][k]);
 					}
+					break;
 				}
 			}
+			if (j == RobotXY.size())
+			{
+				robot[i].isAccesible = false;
+			}
 		}
+		robot[i].Set(i, x, y, goods, sts);
 	}
 	//读取船信息
 	for (int i = 0; i < boat_num; i++)
