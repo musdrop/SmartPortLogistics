@@ -263,24 +263,36 @@ void Robot::FlushPos()
 			if (curPathIndex < 2)
 			{
 				DL << "退无可退新增起点" << endl;
-				curPathIndex--;
-				auto curPos = path[curPathIndex];
-				curPathIndex++;
 				int diffx[] = { 0,0,1,-1 };
 				int diffy[] = { 1,-1,0,0 };
 				for (int i = 0; i < 4; i++)
 				{
-					int nx = curPos.first + diffx[i];
-					int ny = curPos.second + diffy[i];
-					if (nx != path[curPathIndex].first && ny != path[curPathIndex].second && map[nx][ny] != '#' && map[nx][ny] != '*')
+					int nx = x + diffx[i];
+					int ny = y + diffy[i];
+					bool isExist = false;
+					for (int j = 0; j < path.size() && j < 9; j++)
+					{
+						if (nx == path[j].first && ny == path[j].second)
+						{
+							isExist = true;
+							break;
+						}
+					}
+					if (isExist)
+					{
+						continue;
+					}
+					if (map[nx][ny] != '#' && map[nx][ny] != '*')
 					{
 						auto newStartPos = pair<int, int>(nx, ny);
+						DL << "自身当前位置:" << x << ' ' << y << " 新增起点:" << newStartPos.first << " " << newStartPos.second << endl;
 						path.insert(path.begin(), newStartPos);
 						curPathIndex++;
 						break;
 					}
 				}
 			}
+			DL << "扩展起点后当前CurPathIndex:" << curPathIndex << endl;
 			//后退一步
 			if (curPathIndex >= 2)
 			{
